@@ -1,10 +1,31 @@
 #include "platformer.hpp"
 
+// this one is a bit screwed because it returns false when there IS a \
+	collision, which is actually less intuitive, I won't change it since \
+	plenty of the logic is built around this problem.
 bool checkCollisions(Rectangle rec, Rectangles recs) {
 	for (auto i : recs)
 		if (CheckCollisionRecs(rec, i)) return false;
 	return true;
 }
+
+
+// this function can probably be optimized to check a single rectangle \
+	(see Player::moveAxis).
+bool checkAdjacents(Rectangle rec, Rectangles recs, Axis axis, bool& onGround) {
+	auto shift = [](Rectangle rec, Vector2 shift)->Rectangle{
+		return {rec.x + shift.x, rec.y + shift.y, rec.width, rec.height};
+	};
+	Vector2 left{1,0}, right{-1,0}, down{0,1}, up{0,-1};
+
+	if (axis == horizontal)
+		return !checkCollisions(shift(rec, left), recs)
+			|| !checkCollisions(shift(rec, right), recs);
+	if (axis == vertical) {
+		onGround = !checkCollisions(shift(rec, down), recs);
+		return !checkCollisions(shift(rec, up), recs) || onGround;
+	}
+} 
 
 Player& Player::moveX(float speed, Rectangles recs) {
 	static float remainder=0;
@@ -14,6 +35,7 @@ Player& Player::moveX(float speed, Rectangles recs) {
 	int sign = move < 0? -1 : 1;
 
 	moveAxis(move, collidingX, {(float)sign,0}, recs);
+	collidingX = checkAdjacents(rectangle(), recs, horizontal, onGround);
 	return *this;
 }
 
@@ -25,6 +47,7 @@ Player& Player::moveY(float speed, Rectangles recs) {
 	int sign = move < 0? -1 : 1;
 
 	moveAxis(move, collidingY, {0, (float)sign}, recs);
+	collidingY = checkAdjacents(rectangle(), recs, vertical, onGround);
 	return *this;
 }
 
@@ -152,3 +175,54 @@ void _process(float delta, GameData& gameData) {
 		"\nX speed: " << velocity.x << '\n';
 	DrawText(ss.str().c_str(), 30, 30, 20, WHITE);
 }
+
+void process(float delta, GameData& gameData) {
+	auto& player = gameData._player;
+	float friction = 2100;
+	bool moving = false;
+
+	DrawRectangleRec(player.rectangle(), WHITE);
+	for (auto& structure : gameData.structures) {
+		DrawRectangleRec(structure, BLUE);
+	}
+
+	static Vector2 vel{0,0};
+
+	if (IsKeyPressed(gameData.controls[jump]) && player.onGround) {
+		vel.y = -gameData.jumpImpulse;
+	}
+	if (IsKeyDown(gameData.controls[right])) {
+		vel.x += gameData.accel.x * delta;
+		moving = true;
+	}
+	if (IsKeyDown(gameData.controls[left])) {
+		vel.x -= gameData.accel.x * delta;
+		moving = true;
+	}
+
+	vel.x = capSpeed(vel.x, gameData.maxVel.x);
+	vel.y = capSpeed(vel.y, gameData.maxVel.y);
+
+	player.moveX(vel.x * delta, gameData.structures)
+		.moveY(vel.y * delta, gameData.structures);
+
+	if (player.collidingY) vel.y = 0;
+	if (!player.onGround) vel.y += gameData.gravity.y * delta;
+	else if (!moving) {
+		int sign = signbit(vel.x)? -1 : 1;
+		float newVel = vel.x - sign*friction*delta;
+		if (fabs(newVel - vel.x) > fabs(vel.x)) vel.x = 0;
+		else vel.x = newVel;
+	}
+	if (player.collidingX) vel.x = 0;
+	
+	std::stringstream ss;
+	ss << "colliding x: " << (player.collidingX? "true" : "false")
+		<< "\ncolliding y: " << (player.collidingY? "true" : "false")
+		<< "\nx: " << player.position().x
+		<< "\ny: " << player.position().y
+	;
+	
+	DrawText(ss.str().c_str(), 30, 30, 20, WHITE);
+}
+
