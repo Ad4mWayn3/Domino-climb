@@ -28,7 +28,7 @@ int main() {
 
 		switch (mode) {
 		case play:
-			_process(delta, gameData);
+			process(delta, gameData);
 			break;
 		case edit:
 			editProcess(delta, editData);
