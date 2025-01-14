@@ -15,6 +15,8 @@ const struct {
 	int width, height;
 } resolution{1920, 1080};
 
+const Vector2 resolutionV{resolution.width, resolution.height};
+
 bool checkCollisions(Rectangle rec, Rectangles recs);
 
 enum Axis {horizontal, vertical};
@@ -64,18 +66,19 @@ public:
 	}
 };
 
-enum Controls{up=0, down, left, right, jump, reset};
+enum Controls{up=0, down, left, right, jump, look, reset};
 
 struct GameData{
-	KeyboardKey controls[6]{KEY_E, KEY_D, KEY_S, KEY_F, KEY_SPACE, KEY_R};
+	int controls[7]{KEY_E, KEY_D, KEY_S, KEY_F, KEY_SPACE, MOUSE_BUTTON_LEFT, KEY_R};
 	Rectangle player{resolution.width/2.0f, resolution.height/2.0f, 60, 60};
-	Rectangle structure{300,900,1800,30};
+//	Rectangle structure{300,900,1800,30};
+	Camera2D camera;
 	std::vector<Rectangle> structures{};
-	Vector2 maxVel{454,1200};
+	Vector2 maxVel{454,40000};
 	Vector2 accel{1777,0};
-	Vector2 gravity{0,1654};
+	Vector2 gravity{0,3000};
 	Player _player{resolution.width/2.0f, resolution.height/2.0f, 60, 60};
-	float jumpImpulse = 647;
+	float jumpImpulse = 900;
 };
 
 
