@@ -57,6 +57,102 @@ float bounce(float speed, float bounciness) {
 	return -speed * bounciness;
 }
 
+float drag(float speed, float dragRate, float delta) {
+	float newSpeed = (speed < 0)? 
+		speed + dragRate * delta
+	:
+		speed - dragRate * delta;
+
+	return fabs(speed - newSpeed) < fabs(speed)? newSpeed : 0;
+}
+
+float capSpeed(float speed, float speedCap) {
+	if (fabs(speed) > speedCap)
+		return speed < 0? -speedCap : speedCap;
+	return speed;
+}
+
+// *** this function is called assuming a Mode2D context ***
+void cameraFollowCircle(Camera2D& camera, Player& player, float maxOffset) {
+	Vector2 camCenter = camera.target + (resolutionV / 2);
+	Vector2 diff = player.position() - camCenter;
+	
+	// camera moves in the player's direction until the offset is in bounds.
+	while (Vector2LengthSqr(diff) > (maxOffset * maxOffset)) {
+		camCenter = camera.target + (resolutionV / 2);
+		diff = player.position() - camCenter;
+		camera.target += Vector2Normalize(diff);
+	}
+}
+
+void cameraCursorLook(Camera2D& camera, Player& player, float maxOffset) {
+	Vector2 camCenter = camera.target + (resolutionV / 2);
+	camera.target = player.position() - resolutionV / 2 ;
+	Vector2 mouse = {GetMouseX(), GetMouseY()};
+	mouse += camera.target;
+	camera.target += (mouse - camCenter) / 2;
+}
+
+void process(float delta, GameData& gameData) {
+	auto& player = gameData._player;
+	float friction = 5000;
+	bool moving = false;
+
+	BeginMode2D(gameData.camera);
+
+//	cameraFollowCircle(gameData.camera, player, 400);
+	cameraCursorLook(gameData.camera, player, 400);
+
+	DrawRectangleRec(player.rectangle(), WHITE);
+	for (auto& structure : gameData.structures) {
+		DrawRectangleRec(structure, BLUE);
+	}
+
+	EndMode2D();
+
+	static Vector2 vel{0,0};
+
+	if (IsKeyPressed(gameData.controls[jump]) && player.onGround) {
+		vel.y = -gameData.jumpImpulse;
+	}
+	if (IsKeyDown(gameData.controls[right])) {
+		vel.x += gameData.accel.x * delta;
+		moving = true;
+	}
+	if (IsKeyDown(gameData.controls[left])) {
+		vel.x -= gameData.accel.x * delta;
+		moving = true;
+	}
+
+	vel.x = capSpeed(vel.x, gameData.maxVel.x);
+	vel.y = capSpeed(vel.y, gameData.maxVel.y);
+
+	player.moveX(vel.x * delta, gameData.structures)
+		.moveY(vel.y * delta, gameData.structures);
+
+	if (player.collidingY) vel.y = 0;
+	if (!player.onGround) vel.y += gameData.gravity.y * delta;
+	else if (!moving) {
+		int sign = signbit(vel.x)? -1 : 1;
+		float newVel = vel.x - sign*friction*delta;
+		if (fabs(newVel - vel.x) > fabs(vel.x)) vel.x = 0;
+		else vel.x = newVel;
+	}
+	if (player.collidingX) vel.x = 0;
+	
+	std::stringstream ss;
+	ss << "colliding x: " << (player.collidingX? "true" : "false")
+		<< "\ncolliding y: " << (player.collidingY? "true" : "false")
+		<< "\nx: " << player.position().x
+		<< "\ny: " << player.position().y
+		<< "\nmouse x: " << GetMouseX()
+		<< "\nmouse y: " << GetMouseY();
+	;
+	
+	DrawText(ss.str().c_str(), 30, 30, 20, WHITE);
+}
+
+#pragma region legacy engine
 void fixCollision(Rectangle& player, Vector2& velocity, Rectangle structure, \
 	float bounciness=0) {
 	if (bounciness < 0) bounciness = -bounciness;
@@ -92,21 +188,6 @@ void fixCollision(Rectangle& player, Vector2& velocity, Rectangle structure, \
 		|| fabs(velocity.y) < 60) velocity.y = 0;
 	if (collidingSides && bounciness == 0
 		|| fabs(velocity.x) < 60) velocity.x = 0;
-}
-
-float drag(float speed, float dragRate, float delta) {
-	float newSpeed = (speed < 0)? 
-		speed + dragRate * delta
-	:
-		speed - dragRate * delta;
-
-	return fabs(speed - newSpeed) < fabs(speed)? newSpeed : 0;
-}
-
-float capSpeed(float speed, float speedCap) {
-	if (fabs(speed) > speedCap)
-		return speed < 0? -speedCap : speedCap;
-	return speed;
 }
 
 void _process(float delta, GameData& gameData) {
@@ -175,54 +256,4 @@ void _process(float delta, GameData& gameData) {
 		"\nX speed: " << velocity.x << '\n';
 	DrawText(ss.str().c_str(), 30, 30, 20, WHITE);
 }
-
-void process(float delta, GameData& gameData) {
-	auto& player = gameData._player;
-	float friction = 2100;
-	bool moving = false;
-
-	DrawRectangleRec(player.rectangle(), WHITE);
-	for (auto& structure : gameData.structures) {
-		DrawRectangleRec(structure, BLUE);
-	}
-
-	static Vector2 vel{0,0};
-
-	if (IsKeyPressed(gameData.controls[jump]) && player.onGround) {
-		vel.y = -gameData.jumpImpulse;
-	}
-	if (IsKeyDown(gameData.controls[right])) {
-		vel.x += gameData.accel.x * delta;
-		moving = true;
-	}
-	if (IsKeyDown(gameData.controls[left])) {
-		vel.x -= gameData.accel.x * delta;
-		moving = true;
-	}
-
-	vel.x = capSpeed(vel.x, gameData.maxVel.x);
-	vel.y = capSpeed(vel.y, gameData.maxVel.y);
-
-	player.moveX(vel.x * delta, gameData.structures)
-		.moveY(vel.y * delta, gameData.structures);
-
-	if (player.collidingY) vel.y = 0;
-	if (!player.onGround) vel.y += gameData.gravity.y * delta;
-	else if (!moving) {
-		int sign = signbit(vel.x)? -1 : 1;
-		float newVel = vel.x - sign*friction*delta;
-		if (fabs(newVel - vel.x) > fabs(vel.x)) vel.x = 0;
-		else vel.x = newVel;
-	}
-	if (player.collidingX) vel.x = 0;
-	
-	std::stringstream ss;
-	ss << "colliding x: " << (player.collidingX? "true" : "false")
-		<< "\ncolliding y: " << (player.collidingY? "true" : "false")
-		<< "\nx: " << player.position().x
-		<< "\ny: " << player.position().y
-	;
-	
-	DrawText(ss.str().c_str(), 30, 30, 20, WHITE);
-}
-
+#pragma endregion
