@@ -10,7 +10,9 @@ const unsigned modeCount = 2;
 int main() {
 	InitWindow(resolution.width, resolution.height, "collision test");
 	SetTargetFPS(60);
+
 	GameData gameData{};
+	gameData.camera = {{0,0}, {0,0}, 0, 1};
 	loadMap(gameData.structures, "resources/map.txt");
 	EditData editData{gameData.structures};
 	
