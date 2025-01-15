@@ -19,6 +19,7 @@ int main() {
 	while (!WindowShouldClose()) {
 		float delta = GetFrameTime();
 
+		SetExitKey(KEY_NULL);
 		BeginDrawing();
 		ClearBackground(BLACK);
 
