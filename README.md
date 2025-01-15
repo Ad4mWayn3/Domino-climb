@@ -11,7 +11,6 @@ The current iteration is being written in C++ with the raylib library, for now i
 - Simple level editor and playmode
 - Basic motion and collision physics
 - Friction and speed caps
-- Basic camera gamemodes
 
 # To do
 - Pause menu
