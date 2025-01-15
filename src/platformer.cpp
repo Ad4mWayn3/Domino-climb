@@ -73,7 +73,7 @@ float capSpeed(float speed, float speedCap) {
 }
 
 // *** this function is called assuming a Mode2D context ***
-void cameraFollowCircle(Camera2D& camera, Player& player, float maxOffset) {
+void cameraFollowRadius(Camera2D& camera, Player& player, float maxOffset) {
 	Vector2 camCenter = camera.target + (resolutionV / 2);
 	Vector2 diff = player.position() - camCenter;
 	
@@ -89,8 +89,9 @@ void cameraCursorLook(Camera2D& camera, Player& player, float maxOffset) {
 	Vector2 camCenter = camera.target + (resolutionV / 2);
 	camera.target = player.position() - resolutionV / 2 ;
 	Vector2 mouse = {GetMouseX(), GetMouseY()};
-	mouse += camera.target;
-	camera.target += (mouse - camCenter) / 2;
+	Vector2 playerToMouse = mouse - resolutionV / 2;
+	camera.target += Vector2LengthSqr(playerToMouse) > (maxOffset*maxOffset) ?
+		Vector2Normalize(playerToMouse) * maxOffset : playerToMouse;
 }
 
 void process(float delta, GameData& gameData) {
@@ -99,9 +100,6 @@ void process(float delta, GameData& gameData) {
 	bool moving = false;
 
 	BeginMode2D(gameData.camera);
-
-//	cameraFollowCircle(gameData.camera, player, 400);
-	cameraCursorLook(gameData.camera, player, 400);
 
 	DrawRectangleRec(player.rectangle(), WHITE);
 	for (auto& structure : gameData.structures) {
@@ -115,12 +113,20 @@ void process(float delta, GameData& gameData) {
 	if (IsKeyPressed(gameData.controls[jump]) && player.onGround) {
 		vel.y = -gameData.jumpImpulse;
 	}
+	if (IsKeyPressed(gameData.controls[toggleCamera])) {
+		gameData.cameraMode += 1;
+		gameData.cameraMode %= gameData.cameraModeCount;
+	}
 	if (IsKeyDown(gameData.controls[right])) {
 		vel.x += gameData.accel.x * delta;
+		if (vel.x < 0 && player.onGround)
+			vel.x = drag(vel.x, friction, delta);
 		moving = true;
 	}
 	if (IsKeyDown(gameData.controls[left])) {
 		vel.x -= gameData.accel.x * delta;
+		if (vel.x > 0 && player.onGround)
+			vel.x = drag(vel.x, friction, delta);
 		moving = true;
 	}
 
@@ -129,15 +135,22 @@ void process(float delta, GameData& gameData) {
 
 	player.moveX(vel.x * delta, gameData.structures)
 		.moveY(vel.y * delta, gameData.structures);
+	
+	switch (gameData.cameraMode) {
+	case mouselook:
+		cameraCursorLook(gameData.camera, player, 400);
+		break;
+	case follow:
+		cameraFollowRadius(gameData.camera, player, 400);
+		break;
+	}
+
 
 	if (player.collidingY) vel.y = 0;
 	if (!player.onGround) vel.y += gameData.gravity.y * delta;
-	else if (!moving) {
-		int sign = signbit(vel.x)? -1 : 1;
-		float newVel = vel.x - sign*friction*delta;
-		if (fabs(newVel - vel.x) > fabs(vel.x)) vel.x = 0;
-		else vel.x = newVel;
-	}
+	else if (!moving)
+		vel.x = drag(vel.x, friction, delta);
+
 	if (player.collidingX) vel.x = 0;
 	
 	std::stringstream ss;
@@ -146,7 +159,7 @@ void process(float delta, GameData& gameData) {
 		<< "\nx: " << player.position().x
 		<< "\ny: " << player.position().y
 		<< "\nmouse x: " << GetMouseX()
-		<< "\nmouse y: " << GetMouseY();
+		<< "\nmouse y: " << GetMouseY()
 	;
 	
 	DrawText(ss.str().c_str(), 30, 30, 20, WHITE);
