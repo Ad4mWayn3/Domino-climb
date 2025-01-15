@@ -65,11 +65,12 @@ public:
 			.moveY(speed.y, recs);
 	}
 };
-
-enum Controls{up=0, down, left, right, jump, look, reset};
+enum Controls{up=0, down, left, right, jump, look, toggleCamera, reset};
+enum CamMode{mouselook=0, follow};
 
 struct GameData{
-	int controls[7]{KEY_E, KEY_D, KEY_S, KEY_F, KEY_SPACE, MOUSE_BUTTON_LEFT, KEY_R};
+	int controls[8]{KEY_E, KEY_D, KEY_S, KEY_F, KEY_SPACE,
+		MOUSE_BUTTON_LEFT, KEY_TAB, KEY_R};
 	Rectangle player{resolution.width/2.0f, resolution.height/2.0f, 60, 60};
 //	Rectangle structure{300,900,1800,30};
 	Camera2D camera;
@@ -77,6 +78,8 @@ struct GameData{
 	Vector2 maxVel{454,40000};
 	Vector2 accel{1777,0};
 	Vector2 gravity{0,3000};
+	int cameraMode{mouselook};
+	int cameraModeCount = 2;
 	Player _player{resolution.width/2.0f, resolution.height/2.0f, 60, 60};
 	float jumpImpulse = 900;
 };
