@@ -7,12 +7,13 @@ The current iteration is being written in C++ with the raylib library, for now i
 * The original game used mechanics like crouch and crouch-jumping for more varied platforming, inspired directly by Counter-Strike. It also included special platform types: The orange one mirrors the player speed, working as a bouncer; whlie the purple one gives a stronger jump impulse.
 
 # Done
+- Dynamic playmode camera
 - Simple level editor and playmode
 - Basic motion and collision physics
 - Friction and speed caps
 
 # To do
-- Dynamic playmode camera
+- Pause menu
 - Region-based level loading
 - Domino character
 - Special platforms
