@@ -1,2 +1,2 @@
 @if exist collisions.exe rm collisions.exe
-@make all
+@make run
