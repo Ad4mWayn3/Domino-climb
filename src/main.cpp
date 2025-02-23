@@ -4,22 +4,20 @@
 
 #include <string> 
 
-enum Modes {play=0, edit};
 struct { int key; std::string name; } toggleKey = { KEY_W, "W"};
-const unsigned modeCount = 2;
 
 int main() {
 	SetTraceLogLevel(LOG_WARNING); // Logging only for priority at or above warnings.
 	InitWindow(resolution.width, resolution.height, "collision test");
-	SetTargetFPS(60);
-
+	
 	GameData gameData{};
 	gameData.camera = {{0,0}, {0,0}, 0, 1};
-	loadMap(gameData.structures, "resources/map.txt");
+	editor::loadMap(gameData.structures, "resources/map.txt");
 	EditData editData{gameData.structures};
 	SetExitKey(KEY_NULL);
 	guiInit();
-
+	
+	SetTargetFPS(60);
 	while (!WindowShouldClose()) {
 		float delta = GetFrameTime();
 
@@ -35,16 +33,18 @@ int main() {
 			process(delta, gameData);
 			break;
 		case edit:
-			editProcess(delta, editData);
+			editor::editProcess(delta, editData);
 			break;
 		}
 
-		if (IsKeyPressed(KEY_ESCAPE))
+		if (IsKeyPressed(KEY_ESCAPE)) {
 			pause = pause != true; // flips the value of pause
+			menu = menu_pause;
+		}
 
 		if (pause) switch (menu) {
 		case menu_pause:
-			menu = pauseMenu(mode, 2);
+			menu = pauseMenu(mode, pause, gameData, editData);
 			break;
 		case menu_controls:
 			menu = controlsMenu();
