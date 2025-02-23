@@ -23,35 +23,6 @@ Rectangle* getRectangleAt(Vector2 position, \
 	return nullptr;
 }
 
-void loadMap(std::vector<Rectangle>& mapData, const char* mapFileName) {
-	std::ifstream mapFile{mapFileName};
-	if (mapData.size() != 0) mapData = {};
-
-	Rectangle rec;
-	while (true) {
-		if (!(mapFile >> rec.x)) break;
-		if (!(mapFile >> rec.y)) break;
-		if (!(mapFile >> rec.width)) break;
-		if (!(mapFile >> rec.height)) break;
-		mapData.push_back(rec);
-	}
-
-	mapFile.close();
-	return;
-}
-
-void saveMap(const std::vector<Rectangle>& mapData, const char* mapFileName) {
-	std::ofstream mapFile;
-	mapFile.open(mapFileName);
-	std::cout << "saving " << mapFileName << '\n';
-	for (auto& rec : mapData)
-		mapFile << rec.x << ' ' << rec.y << ' ' << rec.width <<  ' '
-			<< rec.height << '\n';
-
-	mapFile.close();
-	return;
-}
-
 bool inRectangle(Vector2 pos, Rectangle rec) {
 	return pos.x >= rec.x && pos.x <= (rec.x + rec.width)
 		&& pos.y >= rec.y && pos.y <= (rec.y + rec.height);
@@ -84,7 +55,36 @@ void editStructure(Rectangle& structure, int* controls, Vector2 mouseDelta) {
 	structure.y -= keyBehavior(controls[move_up]);
 }
 
-void editProcess(float delta, EditData& editData) {
+void editor::loadMap(std::vector<Rectangle>& mapData, const char* mapFileName) {
+	std::ifstream mapFile{mapFileName};
+	if (mapData.size() != 0) mapData = {};
+
+	Rectangle rec;
+	while (true) {
+		if (!(mapFile >> rec.x)) break;
+		if (!(mapFile >> rec.y)) break;
+		if (!(mapFile >> rec.width)) break;
+		if (!(mapFile >> rec.height)) break;
+		mapData.push_back(rec);
+	}
+
+	mapFile.close();
+	return;
+}
+
+void editor::saveMap(const std::vector<Rectangle>& mapData, const char* mapFileName) {
+	std::ofstream mapFile;
+	mapFile.open(mapFileName);
+	std::cout << "saving " << mapFileName << '\n';
+	for (auto& rec : mapData)
+		mapFile << rec.x << ' ' << rec.y << ' ' << rec.width <<  ' '
+			<< rec.height << '\n';
+
+	mapFile.close();
+	return;
+}
+
+void editor::editProcess(float delta, EditData& editData) {
 	auto& camera = editData.camera;
 	auto& selectedStructure = editData.selectedStructure;
 	Vector2 mouseMapPos = GetMousePosition() + camera.target;
