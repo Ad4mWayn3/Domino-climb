@@ -1,6 +1,7 @@
 #pragma once
 
 #include "data.hpp"
+#include "levelEditor.hpp"
 
 #include <raygui.h>
 
@@ -22,7 +23,8 @@ std::vector<Button> buttonGrid(const std::vector<const char*>& buttonNames,
 	Vector2 origin, Vector2 buttonSize, Vector2 spacing, size_t wrapSize,
 	Axis wrapAxis);
 
-Menu pauseMenu(int& gameMode, int gameModeCount);
+Menu pauseMenu(int& gameMode, bool& pause, GameData& gameData,
+	EditData& editData);
 
 Menu controlsMenu();
 

@@ -1,7 +1,7 @@
 #define RAYGUI_IMPLEMENTATION
 #include "gui.hpp"
 
-const Vector2 defaultButtonSize = {50,300};
+const Vector2 defaultButtonSize = {160, 60};
 const Vector2 center = resolutionV / 2;
 
 Rectangle rectangleCenter(float x, float y, float width, float height) {
@@ -52,9 +52,9 @@ std::vector<Button> buttonGrid(const std::vector<const char*>& buttonNames,
 void guiInit() {
 	GuiSetStyle(DEFAULT, TEXT_ALIGNMENT, TEXT_ALIGN_CENTER);
 	GuiSetStyle(DEFAULT, TEXT_WRAP_MODE, TEXT_WRAP_WORD);
-	GuiSetStyle(DEFAULT, TEXT_SIZE, 17);
+	GuiSetStyle(DEFAULT, TEXT_SIZE, 18);
 
-	Vector2 buttonSize{140, 60};
+	Vector2 buttonSize{200, 60};
 	Vector2 screenCenter = resolutionV / 2;
 	Vector2 origin{screenCenter.x - buttonSize.x/2, 80};
 
@@ -69,23 +69,87 @@ void guiInit() {
 	for (int i=0; i < editControlsCount; ++i)
 		editControlsNames[i] = editControls[(EditControls)i].name;
 
-	gameControlsButtons = buttonGrid(gameControlsNames, {1400,80}, buttonSize,
+	gameControlsButtons = buttonGrid(gameControlsNames, {1400,40}, buttonSize,
 		{20,20}, controlsCount, vertical);
 	editControlsButtons = buttonGrid(editControlsNames, {300, 40}, buttonSize,
 		{20,20}, controlsCount, vertical);
 }
 
-Menu pauseMenu(int& gameMode, int gameModeCount) {
-	for (auto& button : pauseButtons)
-		GuiButton(button.bounds, button.text);
+Menu pauseMenu(int& gameMode, bool& pause, GameData& gameData,
+	EditData& editData) {
+	using pb = PauseButton;
+	Button
+		& resume			= pauseButtons[(int)pb::resume],
+		& toggleGamemode	= pauseButtons[(int)pb::toggle_gamemode],
+		& controls			= pauseButtons[(int)pb::controls],
+		& saveMap			= pauseButtons[(int)pb::save_map],
+		& loadMap			= pauseButtons[(int)pb::load_map],
+		& exitGame			= pauseButtons[(int)pb::exit_game];
+	
+	if (GuiButton(resume.bounds, resume.text)) {
+		pause = false;
+		return menu_pause;
+	}
+	if (GuiButton(toggleGamemode.bounds, toggleGamemode.text)) {
+		gameMode = (gameMode + 1) % modeCount;
+	}
+	if (GuiButton(controls.bounds, controls.text)) {
+		return menu_controls;
+	}
+	if (GuiButton(saveMap.bounds, saveMap.text)) {
+		editor::saveMap(editData.structures, "resources/map.txt");
+	}
+	if (GuiButton(loadMap.bounds, loadMap.text)) {
+		editor::loadMap(editData.structures, "resources/map.txt");
+	}
+	if (GuiButton(exitGame.bounds, exitGame.text)) {
+		// should there be an exitGame() function?
+		CloseWindow();
+	}
+
 	return menu_pause;
 }
 
 Menu controlsMenu() {
-	static Rectangle centerBounds = rectangleCenter(center.x, center.y, 400, 900);
+	static Rectangle centerBounds = rectangleCenter(center.x, center.y, 1400, 600);
+	static bool gameControlIsSelected = false,
+		editControlIsSelected = false; 
+	static Controls selectedControl; // probably initalizes to zero which is \
+		the "up" control. Semantically this is nonsense, but no side effect is \
+		expected since "selected" is set to false.
+	static EditControls selectedEditControl; // zero is the "scroll" control \
+		in editor mode. Nonsense again, but same thing as before.
 
-	for (auto& button : gameControlsButtons)
-		GuiButton(button.bounds, button.text);
+	for (size_t i=0; i < gameControlsButtons.size(); ++i) {
+		Button& controlBtn = gameControlsButtons[(Controls)i];
+		if (GuiButton(controlBtn.bounds, controlBtn.text)) {
+			gameControlIsSelected = true;
+			selectedControl = (Controls)i;
+			// the loop could probably break here since there's no need to \
+				check the remaining buttons, given that a single button can be \
+				pressed per frame, but that would leave the rest of the buttons \
+				not rendered.
+		}
+	}
+
+	if (gameControlIsSelected) {
+		std::stringstream ss;
+		ss << "Bind key " << (char)GetKeyPressed() << " to " \
+			<< gameControls[selectedControl].name;
+		GuiLabel(centerBounds, ss.str().c_str());
+
+		int keyPress = GetKeyPressed();
+		if (keyPress != KEY_NULL)
+			gameControls[selectedControl].key = keyPress;
+
+		static Vector2 bottomCenter {center.x, center.y + resolutionV.y / 4};
+		static Rectangle bottomCenterBounds =
+			{bottomCenter.x, bottomCenter.y,
+			defaultButtonSize.x, defaultButtonSize.y};
+		if (GuiButton(bottomCenterBounds, "done")) {
+			gameControlIsSelected = false;
+		}
+	}
 	
 	for (auto& button : editControlsButtons)
 		GuiButton(button.bounds, button.text);
