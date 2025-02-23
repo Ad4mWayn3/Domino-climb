@@ -12,15 +12,37 @@
 
 #define MIN_BOUNCE_SPEED 100
 
+inline const std::map<KeyboardKey, const char*> KeyName {
+#define kstr(x) {KEY_##x, #x},
+#define ks(a,b,c,d,e) kstr(a) kstr(b) kstr(c) kstr(d) kstr(e)
+	{KEY_NULL, "NULL"},
+	ks(APOSTROPHE, COMMA, MINUS, PERIOD, SLASH)
+	ks(ZERO, ONE, TWO, THREE, FOUR)
+	ks(FIVE, SIX, SEVEN, EIGHT, NINE)
+	ks(SEMICOLON, EQUAL, A, B, C)
+	ks(D, E, F, G, H)
+	ks(I, J, K, L, M)
+	ks(N, O, P, Q, R)
+	ks(S, T, U, V, W)
+	ks(X, Y, Z, LEFT_BRACKET, BACKSLASH)
+	kstr(RIGHT_BRACKET) kstr(GRAVE)
+#undef ks
+#undef kstr
+};
+
 using Rectangles = const std::vector<Rectangle>&;
 
-const struct {
+inline const struct {
 	int width, height;
 } resolution{1920, 1080};
 
-const Vector2 resolutionV{(float)resolution.width, (float)resolution.height};
+inline const Vector2 resolutionV
+	{(float)resolution.width, (float)resolution.height};
 
 enum CamMode{mouselook=0, follow};
+
+enum Modes {play=0, edit};
+const unsigned modeCount = 2;
 
 enum Axis {horizontal, vertical};
 
@@ -30,10 +52,10 @@ enum EditControls {
 	copy, _delete,
 	save, load
 };
-
-const int editControlsCount = 13;
+inline const int editControlsCount = 13;
 
 enum Controls{up=0, down, left, right, jump, look, toggleCamera, reset};
+const int controlsCount = 8;
 
 struct Control { int key; const char* name; };
 
@@ -43,10 +65,10 @@ struct Control { int key; const char* name; };
 	EditData and GameData use arrays, which I probably have to fix, unless this\
 	option causes overhead (but i entrust the compiler that it won't)
 inline std::map<Controls, Control> gameControls{
-	{up, {KEY_E, "up"}},		{down, {KEY_D, "down"}},
-	{left, {KEY_S, "left"}},	{jump, {KEY_SPACE, "jump"}},
-	{look, {KEY_NULL,"look"}},	{toggleCamera, {KEY_TAB, "toggle camera"}},
-	{reset, {KEY_R, "reset"}},
+	{up, {KEY_E, "up"}},						{down, {KEY_D, "down"}},
+	{left, {KEY_S, "left"}},					{right, {KEY_F, "right"}},
+	{jump, {KEY_SPACE, "jump"}},				{look, {KEY_NULL,"look"}},
+	{toggleCamera, {KEY_TAB, "toggle camera"}},	{reset, {KEY_R, "reset"}},
 };
 
 inline std::map<EditControls, Control> editControls {
@@ -58,8 +80,6 @@ inline std::map<EditControls, Control> editControls {
 	{_delete, {KEY_DELETE, "delete"}},			{save, {KEY_K, "save"}},
 	{load, {KEY_L, "load"}},
 };
-
-const int controlsCount = 8;
 
 struct {
 	float minLength = 4;
@@ -114,6 +134,7 @@ public:
 		return {(float)x, (float)y, (float)width, (float)height};
 	}
 
+	Player& rotate(Vector2 axis);
 	Player& moveX(float speed, Rectangles recs);
 	Player& moveY(float speed, Rectangles recs);
 	Player& move(Vector2 speed, Rectangles recs) {
@@ -126,7 +147,7 @@ public:
 struct GameData{
 	int controls[controlsCount]{KEY_E, KEY_D, KEY_S, KEY_F, KEY_SPACE,
 		MOUSE_BUTTON_LEFT, KEY_TAB, KEY_R};
-	Rectangle player{resolution.width/2.0f, resolution.height/2.0f, 60, 60};
+//	Rectangle player{resolution.width/2.0f, resolution.height/2.0f, 30, 60};
 //	Rectangle structure{300,900,1800,30};
 	Camera2D camera;
 	std::vector<Rectangle> structures{};
@@ -135,6 +156,6 @@ struct GameData{
 	Vector2 gravity{0,3000};
 	int cameraMode{mouselook};
 	int cameraModeCount = 2;
-	Player _player{(int)resolution.width/2, (int)resolution.height/2, 60, 60};
+	Player _player{(int)resolution.width/2, (int)resolution.height/2, 40, 80};
 	float jumpImpulse = 900;
 };
