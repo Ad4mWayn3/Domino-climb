@@ -24,18 +24,20 @@ int main() {
 		BeginDrawing();
 		ClearBackground(BLACK);
 
-		static int mode = play;
+		static int mode = (int)Modes::play;
 		static Menu menu = menu_pause;
 		static bool pause = false;
 
 		switch (mode) {
-		case play:
+		case (int)Modes::play:
 			process(delta, gameData);
 			break;
-		case edit:
+		case (int)Modes::edit:
 			editor::editProcess(delta, editData);
 			break;
 		}
+
+		if (mode == (int)Modes::exit) break;
 
 		if (IsKeyPressed(KEY_ESCAPE)) {
 			pause = pause != true; // flips the value of pause

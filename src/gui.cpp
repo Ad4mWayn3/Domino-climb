@@ -104,7 +104,7 @@ Menu pauseMenu(int& gameMode, bool& pause, GameData& gameData,
 	}
 	if (GuiButton(exitGame.bounds, exitGame.text)) {
 		// should there be an exitGame() function?
-		CloseWindow();
+		gameMode = (int)Modes::exit;
 	}
 
 	return menu_pause;
