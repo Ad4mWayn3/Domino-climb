@@ -41,7 +41,7 @@ inline const Vector2 resolutionV
 
 enum CamMode{mouselook=0, follow};
 
-enum Modes {play=0, edit};
+enum class Modes {play=0, edit, exit};
 const unsigned modeCount = 2;
 
 enum Axis {horizontal, vertical};
@@ -114,10 +114,10 @@ struct EditData {
 
 class Player {
 	int x, y;
-	int height, width;
-
+	
 	void moveAxis(int moveAm, bool& axisCollide, Vector2 shift, Rectangles recs);
 public:
+	int height, width;
 	Texture tex;
 	bool collidingX=false, collidingY=false, onGround=false;
 	Player(int _x, int _y, int _width, int _height)
@@ -130,11 +130,14 @@ public:
 	,	tex{_tex}{}
 
 	Vector2 position(){ return {(float)x, (float)y}; }
+	Vector2 center(){ return {(float)x + width / 2.0f,
+		(float)y + height / 2.0f}; }
 	Rectangle rectangle(){
 		return {(float)x, (float)y, (float)width, (float)height};
 	}
 
-	Player& rotate(Vector2 axis);
+	void draw();
+	bool rotate(Vector2 axis, Rectangles recs);
 	Player& moveX(float speed, Rectangles recs);
 	Player& moveY(float speed, Rectangles recs);
 	Player& move(Vector2 speed, Rectangles recs) {

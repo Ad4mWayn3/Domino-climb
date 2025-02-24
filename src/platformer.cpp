@@ -1,8 +1,7 @@
 #include "platformer.hpp"
 
-// this one is a bit screwed because it returns false when there IS a \
-	collision, which is actually less intuitive, I won't change it since \
-	plenty of the logic is built around this problem.
+// returns true when there are no collissions. should be backwards but too much \
+	logic is already built around this behavior
 bool checkCollisions(Rectangle rec, Rectangles recs) {
 	for (auto i : recs)
 		if (CheckCollisionRecs(rec, i)) return false;
@@ -41,6 +40,31 @@ void Player::moveAxis(int moveAm, bool& axisCollide, Vector2 shift, Rectangles r
 		moveAm -= shift.x + shift.y;
 	}
 	axisCollide = false;
+}
+
+void Player::draw() {
+	DrawRectangleRec(rectangle(), WHITE);
+}
+
+// the axis is relative to the player's position
+bool Player::rotate(Vector2 axis, Rectangles recs) {
+	Vector2 newOrigin = {-axis.y, axis.x - height}; // this is the axis rotated
+	// 90 degrees counterclockwise, doesn't look intuitive but trust the math :)
+	Rectangle rotateRec = {x + axis.x + newOrigin.x, y - (axis.y + newOrigin.y),
+		height, width};
+
+	bool rotated = checkCollisions(rotateRec, recs);
+//	std::swap(width, height);
+//	x += axis.x + newOrigin.x;
+//	y -= axis.y + newOrigin.y;
+	if (rotated) {
+		x = rotateRec.x;
+		y = rotateRec.y;
+		width = rotateRec.width;
+		height = rotateRec.height;
+	}
+
+	return rotated;
 }
 
 Player& Player::moveX(float speed, Rectangles recs) {
@@ -91,19 +115,19 @@ float capSpeed(float speed, float speedCap) {
 // *** this function is called assuming a Mode2D context ***
 void cameraFollowRadius(Camera2D& camera, Player& player, float maxOffset) {
 	Vector2 camCenter = camera.target + (resolutionV / 2);
-	Vector2 diff = player.position() - camCenter;
+	Vector2 diff = player.center() - camCenter;
 	
 	// camera moves in the player's direction until the offset is in bounds.
 	while (Vector2LengthSqr(diff) > (maxOffset * maxOffset)) {
 		camCenter = camera.target + (resolutionV / 2);
-		diff = player.position() - camCenter;
+		diff = player.center() - camCenter;
 		camera.target += Vector2Normalize(diff);
 	}
 }
 
 void cameraCursorLook(Camera2D& camera, Player& player, float maxOffset) {
 	Vector2 camCenter = camera.target + (resolutionV / 2);
-	camera.target = player.position() - resolutionV / 2 ;
+	camera.target = player.center() - resolutionV / 2 ;
 	Vector2 mouse = {(float)GetMouseX(), (float)GetMouseY()};
 	Vector2 playerToMouse = mouse - resolutionV / 2;
 	camera.target += Vector2LengthSqr(playerToMouse) > (maxOffset*maxOffset) ?
@@ -117,7 +141,8 @@ void process(float delta, GameData& gameData) {
 
 	BeginMode2D(gameData.camera);
 
-	DrawRectangleRec(player.rectangle(), WHITE);
+	player.draw();
+//	DrawRectangleRec(player.rectangle(), WHITE);
 	for (auto& structure : gameData.structures) {
 		DrawRectangleRec(structure, BLUE);
 	}
@@ -144,6 +169,17 @@ void process(float delta, GameData& gameData) {
 		if (vel.x > 0 && player.onGround)
 			vel.x = drag(vel.x, friction, delta);
 		moving = true;
+	}
+	static bool prone = false;
+	if (IsKeyDown(gameData.controls[down])) {
+		if (!prone)
+			prone = player.rotate({player.width / 2.0f, player.height / 2.0f},
+				gameData.structures);
+//		prone = true;
+	} else {
+		if (prone)
+			prone = !player.rotate({player.width / 2.0f, player.height / 2.0f},
+			gameData.structures);
 	}
 
 	vel.x = capSpeed(vel.x, gameData.maxVel.x);
