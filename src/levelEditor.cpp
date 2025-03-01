@@ -23,17 +23,52 @@ Rectangle* getRectangleAt(Vector2 position, \
 	return nullptr;
 }
 
+Rectangle getOuterRectangle(const std::vector<Rectangle*>& recs) {
+	if (recs.size() == 0) return {0.0f, 0.0f, 0.0f, 0.0f};
+	Vector2 origin = {recs.at(0)->x, recs.at(0)->y}, end = {0,0};
+	for (auto& rec : recs) {
+		if (rec->x < origin.x) origin.x = rec->x;
+		if (rec->y < origin.y) origin.y = rec->y;
+		if (rec->x + rec->width > end.x) end.x = rec->x + rec->width;
+		if (rec->y + rec->height > end.y) end.y = rec->y + rec->height;
+	}
+
+	return {origin.x, origin.y, end.x-origin.x, end.y-origin.y};
+}
+
+// checks if a point (vector2) is inside a rectangle
 bool inRectangle(Vector2 pos, Rectangle rec) {
 	return pos.x >= rec.x && pos.x <= (rec.x + rec.width)
 		&& pos.y >= rec.y && pos.y <= (rec.y + rec.height);
 }
 
-void editStructure(Rectangle& structure, int* controls, Vector2 mouseDelta) {
-	bool repos=false; // re-position
+// selects the rectangles that collide with "selector"
+void updateSelected(std::vector<Rectangle>& structures,
+	std::vector<Rectangle*>& selected, Rectangle selector) {
+	if (selected.capacity() < structures.size())
+		selected.reserve(structures.size());
+
+//	selected.resize(0);
+	for (auto& rec : structures)
+		if (CheckCollisionRecs(selector, rec))
+			selected.push_back(&rec);
+
+	#ifdef DEBUG
+	std::cout << "updateSelected(recs, selected, selector)\n";
+	#endif
+}
+
+// TODO: delete this function; moving, resizing and copying should be separate
+// functions
+void editStructure(EditData& data, Rectangle& structure, TimeSeconds delta,
+	Vector2 mouseDelta) {
+	auto& controls = data.controls;
+
 	if (IsMouseButtonDown(controls[select])) {
 		structure.x += mouseDelta.x;
 		structure.y += mouseDelta.y;
 	}
+	bool repos=false; // re-position
 	if (IsKeyDown(controls[resize_w])) {
 		repos = true;
 		structure.width += mouseDelta.x;
@@ -47,12 +82,26 @@ void editStructure(Rectangle& structure, int* controls, Vector2 mouseDelta) {
 			structure.height = constData.minLength;
 	}
 
-	auto keyBehavior = IsKeyPressed;
+	auto isKeyBuffered = [delta](KeyboardKey key, TimeSeconds& timePressed,
+		TimeSeconds bufferDelay) {
+		if (IsKeyDown(key)) timePressed += delta;
+		else timePressed = 0;
+		return timePressed >= bufferDelay;
+	};
 
-	structure.x += keyBehavior(controls[move_right]);
-	structure.x -= keyBehavior(controls[move_left]);
-	structure.y += keyBehavior(controls[move_down]);
-	structure.y -= keyBehavior(controls[move_up]);
+	static std::map<EditControls, float> keyPressTime{
+		{move_right, 0},
+		{move_left, 0},
+		{move_down, 0},
+		{move_up, 0},
+	};
+	auto delay = data.inputBufferDelay;
+#define K_BUFFER(k) isKeyBuffered((KeyboardKey)controls[k], keyPressTime[k], delay)
+	structure.x += K_BUFFER(move_right);
+	structure.x -= K_BUFFER(move_left);
+	structure.y += K_BUFFER(move_down);
+	structure.y -= K_BUFFER(move_up);
+#undef K_BUFFER
 }
 
 void editor::loadMap(std::vector<Rectangle>& mapData, const char* mapFileName) {
@@ -72,24 +121,26 @@ void editor::loadMap(std::vector<Rectangle>& mapData, const char* mapFileName) {
 	return;
 }
 
+// TODO: It should run on a separate thread
 void editor::saveMap(const std::vector<Rectangle>& mapData, const char* mapFileName) {
 	std::ofstream mapFile;
 	mapFile.open(mapFileName);
 	std::cout << "saving " << mapFileName << '\n';
 	for (auto& rec : mapData)
-		mapFile << rec.x << ' ' << rec.y << ' ' << rec.width <<  ' '
-			<< rec.height << '\n';
+		mapFile << floor(rec.x) << ' ' << floor(rec.y) << ' ' \
+			<< floor(rec.width) << ' ' << floor(rec.height) << '\n';
 
 	mapFile.close();
 	return;
 }
 
-void editor::editProcess(float delta, EditData& editData) {
-	auto& camera = editData.camera;
-	auto& selectedStructure = editData.selectedStructure;
+void editor::process(EditData& editData, TimeSeconds delta) {
+	Camera2D& camera = editData.camera;
+//	auto& selectedStructure = editData.selectedStructure;
+	Rectangle& newStructure = editData.newStructure;
+	Rectangle& selector = editData.selector;
+	bool& creating = editData.creating;
 	Vector2 mouseMapPos = GetMousePosition() + camera.target;
-	static bool creating = false;
-	static Rectangle newStructure{mouseMapPos.x, mouseMapPos.y, 0.0f, 0.0f};
 
 	if (!creating) {
 		newStructure.x = roundf(mouseMapPos.x);
@@ -101,30 +152,39 @@ void editor::editProcess(float delta, EditData& editData) {
 	if (IsMouseButtonDown(editData.controls[scroll])) {
 		editData.camera.target -= GetMouseDelta();
 	}
-	if (IsMouseButtonPressed(editData.controls[select])) {
-		auto rectangleAtMouse = getRectangleAt(mouseMapPos, editData.structures);
-		if (selectedStructure) {
-			if (!inRectangle(mouseMapPos, *selectedStructure))
-				selectedStructure = rectangleAtMouse;
-		} else selectedStructure = rectangleAtMouse;
+
+	{
+		bool selecting = false;
+		if (IsMouseButtonPressed(editData.controls[select])) {
+			selector.x = mouseMapPos.x;
+			editData.selector.y = mouseMapPos.y;
+			if (!IsKeyDown(editData.controls[select_multiple]))
+				editData.selectedStructures.resize(0);
+			auto rec = getRectangleAt(mouseMapPos, editData.structures);
+			if (rec) editData.selectedStructures.push_back(rec);
+		} else if (IsMouseButtonDown(editData.controls[select])) {
+			selector.width = mouseMapPos.x - selector.x;
+			selector.height = mouseMapPos.y - selector.y;
+		} else {
+			selector.width = 0;
+			selector.height = 0;
+		}
+
+		if ((selector.width != 0 && selector.height != 0) || selecting)
+			updateSelected(editData.structures, editData.selectedStructures,
+				fixNegativeDims(selector));
 	}
+
+
 	if (IsKeyDown(editData.controls[create]))
 		creating = true;
 	else
 		creating = false;
-	if (IsKeyPressed(editData.controls[_delete]) && selectedStructure) {
-		auto& xs = editData.structures;
-		std::swap(*selectedStructure, xs[xs.size()-1]);
-		xs.pop_back();
-		selectedStructure = nullptr;
+	if (IsKeyPressed(editData.controls[_delete])) {
+
 	}
 	if (IsKeyPressed(editData.controls[copy])) {
-		auto& newRec = selectedStructure;
-		if (newRec) editData.structures.push_back(
-			{newRec->x + 10, newRec->y + 10, newRec->width, newRec->height}
-		);
-		if (newRec)
-			selectedStructure = &editData.structures[editData.structures.size()-1];
+
 	}
 	if (IsKeyPressed(editData.controls[save])) {
 		saveMap(editData.structures, "resources/map.txt");
@@ -132,8 +192,16 @@ void editor::editProcess(float delta, EditData& editData) {
 	if (IsKeyPressed(editData.controls[load])) {
 		loadMap(editData.structures, "resources/map.txt");
 	}
+}
+
+void editor::draw(EditData& editData, TimeSeconds delta, Rectangle player) {
+	bool& creating = editData.creating;
+	Rectangle& newStructure = editData.newStructure;
+	Rectangle& selector = editData.selector;
+	Rectangle*& selectedStructure = editData.selectedStructure;
 
 	BeginMode2D(editData.camera);
+	DrawRectangleRec(player, WHITE);
 
 	for (auto& structure : editData.structures)
 		DrawRectangleRec(structure, BROWN);
@@ -142,10 +210,13 @@ void editor::editProcess(float delta, EditData& editData) {
 		editData.structures.push_back(fixNegativeDims(newStructure));
 	}
 
-	DrawRectangleLinesEx(fixNegativeDims(newStructure), 5, WHITE);
-	if (selectedStructure) {
-		DrawRectangleLinesEx(*selectedStructure, 5, WHITE);
-		editStructure(*selectedStructure, editData.controls, GetMouseDelta());
+	const static Color transparentWhite = {255, 255, 255, 40};
+
+	DrawRectangleRec(fixNegativeDims(newStructure), transparentWhite);
+	DrawRectangleRec(fixNegativeDims(selector), transparentWhite);
+
+	for (auto& rec : editData.selectedStructures) {
+		DrawRectangleLinesEx(*rec, 4, WHITE);
 	}
 
 	EndMode2D();
