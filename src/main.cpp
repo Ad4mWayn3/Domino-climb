@@ -2,22 +2,20 @@
 #include "levelEditor.hpp"
 #include "platformer.hpp"
 
-#include <string> 
-
-struct { int key; std::string name; } toggleKey = { KEY_W, "W"};
+#include <string>
 
 int main() {
-	SetTraceLogLevel(LOG_WARNING); // Logging only for priority at or above warnings.
-	InitWindow(resolution.width, resolution.height, "collision test");
+	SetTraceLogLevel(LOG_WARNING); // Logging only for priority at or above \
+		warnings.
+	InitWindow(resolution.width, resolution.height, "Domino climb");
+	SetTargetFPS(60);
+	SetExitKey(KEY_NULL);
 	
 	GameData gameData{};
-	gameData.camera = {{0,0}, {0,0}, 0, 1};
-	editor::loadMap(gameData.structures, "resources/map.txt");
 	EditData editData{gameData.structures};
-	SetExitKey(KEY_NULL);
-	guiInit();
+	editor::loadMap(gameData.structures, "resources/map.txt");
+	gui::init();
 	
-	SetTargetFPS(60);
 	while (!WindowShouldClose()) {
 		float delta = GetFrameTime();
 
@@ -25,15 +23,17 @@ int main() {
 		ClearBackground(BLACK);
 
 		static int mode = (int)Modes::play;
-		static Menu menu = menu_pause;
+		static Menu menu = Menu::menu_pause;
 		static bool pause = false;
 
 		switch (mode) {
 		case (int)Modes::play:
-			process(delta, gameData);
+			platformer::draw(gameData);
+			if (!pause) platformer::process(gameData, delta);
 			break;
 		case (int)Modes::edit:
-			editor::editProcess(delta, editData);
+			if (!pause) editor::process(editData, delta);
+			editor::draw(editData, delta, gameData.player.rectangle());
 			break;
 		}
 
@@ -41,15 +41,15 @@ int main() {
 
 		if (IsKeyPressed(KEY_ESCAPE)) {
 			pause = pause != true; // flips the value of pause
-			menu = menu_pause;
+			menu = Menu::menu_pause;
 		}
 
 		if (pause) switch (menu) {
-		case menu_pause:
-			menu = pauseMenu(mode, pause, gameData, editData);
+		case Menu::menu_pause:
+			menu = gui::pauseMenu(mode, pause, gameData, editData);
 			break;
-		case menu_controls:
-			menu = controlsMenu();
+		case Menu::menu_controls:
+			menu = gui::controlsMenu();
 			break;
 		}
 		
