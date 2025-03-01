@@ -47,24 +47,37 @@ void Player::draw() {
 }
 
 // the axis is relative to the player's position
-bool Player::rotate(Vector2 axis, Rectangles recs) {
+bool Player::rotate(Vector2 axis, Rectangles recs, bool forceRotate) {
 	Vector2 newOrigin = {-axis.y, axis.x - height}; // this is the axis rotated
 	// 90 degrees counterclockwise, doesn't look intuitive but trust the math :)
 	Rectangle rotateRec = {x + axis.x + newOrigin.x, y - (axis.y + newOrigin.y),
 		height, width};
 
 	bool rotated = checkCollisions(rotateRec, recs);
-//	std::swap(width, height);
-//	x += axis.x + newOrigin.x;
-//	y -= axis.y + newOrigin.y;
-	if (rotated) {
+
+	if (!rotated && forceRotate) {
+		int d = maxFixCollisionSize();
+		for (int i=0; i < d; ++i) {
+			rotateRec.y -= 1;
+			if (checkCollisions(rotateRec, recs)) goto assign;
+		}
+		if (!checkCollisions(rotateRec, recs)){
+			rotated = false;
+			forceRotate = false;
+		}
+	}
+
+	if (rotated || forceRotate) {
+	assign:
 		x = rotateRec.x;
 		y = rotateRec.y;
 		width = rotateRec.width;
 		height = rotateRec.height;
 	}
 
-	return rotated;
+	if (!(rotated || forceRotate)) DrawRectangleRec(rotateRec, BROWN);
+
+	return rotated || forceRotate;
 }
 
 Player& Player::moveX(float speed, Rectangles recs) {
@@ -112,7 +125,7 @@ float capSpeed(float speed, float speedCap) {
 	return speed;
 }
 
-// *** this function is called assuming a Mode2D context ***
+// should be called inside a Mode2D context
 void cameraFollowRadius(Camera2D& camera, Player& player, float maxOffset) {
 	Vector2 camCenter = camera.target + (resolutionV / 2);
 	Vector2 diff = player.center() - camCenter;
@@ -125,6 +138,7 @@ void cameraFollowRadius(Camera2D& camera, Player& player, float maxOffset) {
 	}
 }
 
+// should be called inside a Mode2D context
 void cameraCursorLook(Camera2D& camera, Player& player, float maxOffset) {
 	Vector2 camCenter = camera.target + (resolutionV / 2);
 	camera.target = player.center() - resolutionV / 2 ;
@@ -134,20 +148,24 @@ void cameraCursorLook(Camera2D& camera, Player& player, float maxOffset) {
 		Vector2Normalize(playerToMouse) * maxOffset : playerToMouse;
 }
 
-void process(float delta, GameData& gameData) {
-	auto& player = gameData._player;
-	float friction = 5000;
-	bool moving = false;
-
+// note: drawing can be handled inside process, but doing it separately \
+	allows the game to be paused and still be rendered
+void platformer::draw(GameData& gameData) {
 	BeginMode2D(gameData.camera);
 
-	player.draw();
-//	DrawRectangleRec(player.rectangle(), WHITE);
+	gameData.player.draw();
+
 	for (auto& structure : gameData.structures) {
 		DrawRectangleRec(structure, BLUE);
 	}
 
 	EndMode2D();
+}
+
+void platformer::process(GameData& gameData, float delta) {
+	auto& player = gameData.player;
+	float friction = 5000;
+	bool moving = false;
 
 	static Vector2 vel{0,0};
 
@@ -170,7 +188,9 @@ void process(float delta, GameData& gameData) {
 			vel.x = drag(vel.x, friction, delta);
 		moving = true;
 	}
+
 	static bool prone = false;
+	BeginMode2D(gameData.camera);
 	if (IsKeyDown(gameData.controls[down])) {
 		if (!prone)
 			prone = player.rotate({player.width / 2.0f, player.height / 2.0f},
@@ -179,8 +199,9 @@ void process(float delta, GameData& gameData) {
 	} else {
 		if (prone)
 			prone = !player.rotate({player.width / 2.0f, player.height / 2.0f},
-			gameData.structures);
+				gameData.structures, true);
 	}
+	EndMode2D();
 
 	vel.x = capSpeed(vel.x, gameData.maxVel.x);
 	vel.y = capSpeed(vel.y, gameData.maxVel.y);
