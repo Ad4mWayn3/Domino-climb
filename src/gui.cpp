@@ -8,6 +8,7 @@ Rectangle rectangleCenter(float x, float y, float width, float height) {
 	return {x - width/2, y - height/2, width, height};
 }
 
+/*
 void fitButtonsToGrid(std::vector<Button>& buttons, Rectangle bounds,
 	size_t rows, size_t cols, float spacing) {
 	float xJump = (bounds.width / cols),
@@ -27,8 +28,10 @@ void fitButtonsToGrid(std::vector<Button>& buttons, Rectangle bounds,
 		buttons[i] = {{x, y, width, height}, buttons[i].text};
 	}
 }
+*/
 
-std::vector<Button> buttonGrid(const std::vector<const char*>& buttonNames,
+using cstrlist = std::vector<const char*>;
+std::vector<Button> gui::buttonGrid(const cstrlist& buttonNames,
 	Vector2 origin, Vector2 buttonSize, Vector2 spacing, size_t wrapSize,
 	Axis wrapAxis) {
 	std::vector<Button> out(buttonNames.size());
@@ -49,7 +52,7 @@ std::vector<Button> buttonGrid(const std::vector<const char*>& buttonNames,
 	return out;
 }
 
-void guiInit() {
+void gui::init() {
 	GuiSetStyle(DEFAULT, TEXT_ALIGNMENT, TEXT_ALIGN_CENTER);
 	GuiSetStyle(DEFAULT, TEXT_WRAP_MODE, TEXT_WRAP_WORD);
 	GuiSetStyle(DEFAULT, TEXT_SIZE, 18);
@@ -62,20 +65,20 @@ void guiInit() {
 		"save map", "load map", "exit game"}, origin, buttonSize,
 		{30,30}, 6, vertical);
 
-	std::vector<const char*> gameControlsNames(controlsCount);
-	std::vector<const char*> editControlsNames(editControlsCount);
-	for (int i=0; i < controlsCount; ++i)
+	std::vector<const char*> gameControlsNames(controls_count);
+	std::vector<const char*> editControlsNames(edit_count);
+	for (int i=0; i < controls_count; ++i)
 		gameControlsNames[i] = gameControls[(Controls)i].name;
-	for (int i=0; i < editControlsCount; ++i)
+	for (int i=0; i < edit_count; ++i)
 		editControlsNames[i] = editControls[(EditControls)i].name;
 
 	gameControlsButtons = buttonGrid(gameControlsNames, {1400,40}, buttonSize,
-		{20,20}, controlsCount, vertical);
+		{20,20}, controls_count, vertical);
 	editControlsButtons = buttonGrid(editControlsNames, {300, 40}, buttonSize,
-		{20,20}, controlsCount, vertical);
+		{20,20}, controls_count, vertical);
 }
 
-Menu pauseMenu(int& gameMode, bool& pause, GameData& gameData,
+Menu gui::pauseMenu(int& gameMode, bool& pause, GameData& gameData,
 	EditData& editData) {
 	using pb = PauseButton;
 	Button
@@ -88,13 +91,13 @@ Menu pauseMenu(int& gameMode, bool& pause, GameData& gameData,
 	
 	if (GuiButton(resume.bounds, resume.text)) {
 		pause = false;
-		return menu_pause;
+		return Menu::menu_pause;
 	}
 	if (GuiButton(toggleGamemode.bounds, toggleGamemode.text)) {
 		gameMode = (gameMode + 1) % modeCount;
 	}
 	if (GuiButton(controls.bounds, controls.text)) {
-		return menu_controls;
+		return Menu::menu_controls;
 	}
 	if (GuiButton(saveMap.bounds, saveMap.text)) {
 		editor::saveMap(editData.structures, "resources/map.txt");
@@ -107,10 +110,10 @@ Menu pauseMenu(int& gameMode, bool& pause, GameData& gameData,
 		gameMode = (int)Modes::exit;
 	}
 
-	return menu_pause;
+	return Menu::menu_pause;
 }
 
-Menu controlsMenu() {
+Menu gui::controlsMenu() {
 	static Rectangle centerBounds = rectangleCenter(center.x, center.y, 1400, 600);
 	static bool gameControlIsSelected = false,
 		editControlIsSelected = false; 
@@ -154,5 +157,5 @@ Menu controlsMenu() {
 	for (auto& button : editControlsButtons)
 		GuiButton(button.bounds, button.text);
 
-	return menu_controls;
+	return Menu::menu_controls;
 }
