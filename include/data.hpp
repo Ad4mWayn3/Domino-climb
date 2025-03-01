@@ -31,10 +31,11 @@ inline const std::map<KeyboardKey, const char*> KeyName {
 };
 
 using Rectangles = const std::vector<Rectangle>&;
+using TimeSeconds = float;
 
 inline const struct {
 	int width, height;
-} resolution{1920, 1080};
+} resolution{1280, 720};
 
 inline const Vector2 resolutionV
 	{(float)resolution.width, (float)resolution.height};
@@ -50,12 +51,10 @@ enum EditControls {
 	scroll=0, select, create,
 	resize_w, resize_h, move_up, move_down, move_left, move_right,
 	copy, _delete,
-	save, load
+	save, load, select_multiple, edit_count
 };
-inline const int editControlsCount = 13;
 
-enum Controls{up=0, down, left, right, jump, look, toggleCamera, reset};
-const int controlsCount = 8;
+enum Controls{up=0, down, left, right, jump, look, toggleCamera, reset, controls_count};
 
 struct Control { int key; const char* name; };
 
@@ -78,7 +77,7 @@ inline std::map<EditControls, Control> editControls {
 	{move_down, {KEY_DOWN, "move down"}},		{move_left, {KEY_LEFT, "move left"}},
 	{move_right, {KEY_RIGHT, "move right"}},	{copy, {KEY_C, "copy"}},
 	{_delete, {KEY_DELETE, "delete"}},			{save, {KEY_K, "save"}},
-	{load, {KEY_L, "load"}},
+	{load, {KEY_L, "load"}},					{select_multiple, {KEY_LEFT_SHIFT, "select multiple"}},
 };
 
 struct {
@@ -97,21 +96,6 @@ struct {
 		"Load map:\tL\n";
 } constData;
 
-struct EditData {
-	int controls[editControlsCount]{
-		MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_LEFT, KEY_F,
-		KEY_S, KEY_D, KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT,
-		KEY_C, KEY_DELETE,
-		KEY_K, KEY_L
-	};
-	std::vector<Rectangle>& structures;
-	Rectangle* selectedStructure = nullptr;
-	Camera2D camera{{0,0},{0,0},0.0f,1.0f};
-
-	EditData(std::vector<Rectangle>& _structures)
-	:	structures{_structures}{}
-};
-
 class Player {
 	int x, y;
 	
@@ -129,6 +113,11 @@ public:
 	,	width{_width}, height{_height}
 	,	tex{_tex}{}
 
+	int maxFixCollisionSize() { 
+		int max = std::max(width, height),
+			min = std::min(width, height);
+		return (max - min) / 2; 
+	}
 	Vector2 position(){ return {(float)x, (float)y}; }
 	Vector2 center(){ return {(float)x + width / 2.0f,
 		(float)y + height / 2.0f}; }
@@ -137,7 +126,7 @@ public:
 	}
 
 	void draw();
-	bool rotate(Vector2 axis, Rectangles recs);
+	bool rotate(Vector2 axis, Rectangles recs, bool forceRotate = false);
 	Player& moveX(float speed, Rectangles recs);
 	Player& moveY(float speed, Rectangles recs);
 	Player& move(Vector2 speed, Rectangles recs) {
@@ -148,17 +137,17 @@ public:
 };
 
 struct GameData{
-	int controls[controlsCount]{KEY_E, KEY_D, KEY_S, KEY_F, KEY_SPACE,
+	int controls[controls_count]{KEY_E, KEY_D, KEY_S, KEY_F, KEY_SPACE,
 		MOUSE_BUTTON_LEFT, KEY_TAB, KEY_R};
 //	Rectangle player{resolution.width/2.0f, resolution.height/2.0f, 30, 60};
 //	Rectangle structure{300,900,1800,30};
-	Camera2D camera;
+	Camera2D camera{{0,0}, {0,0}, 0, 1};
 	std::vector<Rectangle> structures{};
-	Vector2 maxVel{454,40000};
+	Vector2 maxVel{450,40000};
 	Vector2 accel{1777,0};
-	Vector2 gravity{0,3000};
+	Vector2 gravity{0,2700};
 	int cameraMode{mouselook};
 	int cameraModeCount = 2;
-	Player _player{(int)resolution.width/2, (int)resolution.height/2, 40, 80};
+	Player player{(int)resolution.width/2, (int)resolution.height/2, 40, 80};
 	float jumpImpulse = 900;
 };
