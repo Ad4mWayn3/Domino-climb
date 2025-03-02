@@ -33,11 +33,11 @@ inline const std::map<KeyboardKey, const char*> KeyName {
 using Rectangles = const std::vector<Rectangle>&;
 using TimeSeconds = float;
 
-inline const struct {
+inline struct {
 	int width, height;
-} resolution{1280, 720};
+} resolution{800, 600};
 
-inline const Vector2 resolutionV
+inline Vector2 resolutionV
 	{(float)resolution.width, (float)resolution.height};
 
 enum CamMode{mouselook=0, follow};
