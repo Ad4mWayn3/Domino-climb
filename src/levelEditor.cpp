@@ -12,6 +12,21 @@ Rectangle fixNegativeDims(Rectangle rec) {
 	return rec;
 }
 
+// resizes a rectangle inside a resizeBox
+Rectangle resizeInnerRec(Rectangle inner, Rectangle bounds, Rectangle newBounds) {
+	// vectors inner1, inner2, outer1, outer2, outer1', outer2'
+	Vector2 i1{inner.x - bounds.x, inner.y - bounds.y}, i2{inner.width, inner.height},
+		o1{bounds.x, bounds.y}, o2{bounds.width, bounds.height},
+		oP1{newBounds.x, newBounds.y}, oP2{newBounds.width, newBounds.height};
+
+	return {
+		i1.x * oP1.x / o1.x,
+		i1.y * oP1.y / o1.y,
+		i2.x * oP2.x / o2.x,
+		i2.y * oP2.y / o2.y,
+	};
+}
+
 Rectangle* getRectangleAt(Vector2 position, \
 	std::vector<Rectangle>& rectangles) {
 	for (Rectangle& rec : rectangles) {
@@ -23,17 +38,34 @@ Rectangle* getRectangleAt(Vector2 position, \
 	return nullptr;
 }
 
+// gets smallest rectangle that fully contains all of "recs"
 Rectangle getOuterRectangle(const std::vector<Rectangle*>& recs) {
+	Vector2 origin{1e10f, 1e10f};
+	Vector2 end = origin * -1;
 	if (recs.size() == 0) return {0.0f, 0.0f, 0.0f, 0.0f};
-	Vector2 origin = {recs.at(0)->x, recs.at(0)->y}, end = {0,0};
 	for (auto& rec : recs) {
 		if (rec->x < origin.x) origin.x = rec->x;
 		if (rec->y < origin.y) origin.y = rec->y;
-		if (rec->x + rec->width > end.x) end.x = rec->x + rec->width;
-		if (rec->y + rec->height > end.y) end.y = rec->y + rec->height;
+		if (rec->width + rec->x > end.x) end.x = rec->width + rec->x;
+		if (rec->height + rec->y > end.y) end.y = rec->height + rec->y;
 	}
+	return {origin.x, origin.y, end.x - origin.x, end.y - origin.y};
+}
 
-	return {origin.x, origin.y, end.x-origin.x, end.y-origin.y};
+// HINT: ABSOLUTE VALUE
+void drawResizeBox(Rectangle rec, float lineThick, float circleRadius, Color color) {
+	if (rec.width * rec.height == 0) return;
+	DrawRectangleLinesEx(rec, lineThick, color);
+//	DrawRectangleRec(rec, {255,255,255,60});
+	DrawCircle(rec.x, rec.y, circleRadius, color);								// upper left
+	DrawCircle(rec.x + rec.width / 2, rec.y, circleRadius, color);				// upper center
+	DrawCircle(rec.x + rec.width, rec.y, circleRadius, color);					// upper right
+	DrawCircle(rec.x, rec.y + rec.height /2, circleRadius, color);				// center left
+	DrawCircle(rec.x + rec.width /2, rec.y + rec.height /2, circleRadius, color); // center
+	DrawCircle(rec.x + rec.width, rec.y + rec.height /2, circleRadius, color);	// center right
+	DrawCircle(rec.x, rec.y + rec.height, circleRadius, color);					// lower left
+	DrawCircle(rec.x + rec.width / 2, rec.y + rec.height, circleRadius, color);	// lower center
+	DrawCircle(rec.x + rec.width, rec.y + rec.height, circleRadius, color);		// lower right
 }
 
 // checks if a point (vector2) is inside a rectangle
@@ -140,7 +172,7 @@ void editor::process(EditData& editData, TimeSeconds delta) {
 	Rectangle& newStructure = editData.newStructure;
 	Rectangle& selector = editData.selector;
 	bool& creating = editData.creating;
-	Vector2 mouseMapPos = GetMousePosition() + camera.target;
+	Vector2 mouseMapPos = GetMousePosition() / camera.zoom + camera.target;
 
 	if (!creating) {
 		newStructure.x = roundf(mouseMapPos.x);
@@ -150,7 +182,7 @@ void editor::process(EditData& editData, TimeSeconds delta) {
 	newStructure.height = roundf(mouseMapPos.y - newStructure.y);
 
 	if (IsMouseButtonDown(editData.controls[scroll])) {
-		editData.camera.target -= GetMouseDelta();
+		editData.camera.target -= GetMouseDelta() / camera.zoom;
 	}
 
 	{
@@ -158,21 +190,34 @@ void editor::process(EditData& editData, TimeSeconds delta) {
 		if (IsMouseButtonPressed(editData.controls[select])) {
 			selector.x = mouseMapPos.x;
 			editData.selector.y = mouseMapPos.y;
-			if (!IsKeyDown(editData.controls[select_multiple]))
-				editData.selectedStructures.resize(0);
+			selecting = true;
 			auto rec = getRectangleAt(mouseMapPos, editData.structures);
 			if (rec) editData.selectedStructures.push_back(rec);
 		} else if (IsMouseButtonDown(editData.controls[select])) {
 			selector.width = mouseMapPos.x - selector.x;
 			selector.height = mouseMapPos.y - selector.y;
+			selecting = true;
 		} else {
 			selector.width = 0;
 			selector.height = 0;
 		}
-
-		if ((selector.width != 0 && selector.height != 0) || selecting)
+		if (!IsKeyDown(editData.controls[select_multiple]) && selecting) {
+//			selector.width = 0;
+			editData.selectedStructures.resize(0);
+//				editData.resizeBox.x = 0;
+//				editData.resizeBox.y = 0;
+		}
+		
+		if ((selector.width != 0 && selector.height != 0) || selecting) {
 			updateSelected(editData.structures, editData.selectedStructures,
 				fixNegativeDims(selector));
+			editData.resizeBox = getOuterRectangle(editData.selectedStructures);
+			#ifdef DEBUG
+			std::cout << "editor::process: resizeBox = { " << editData.resizeBox.x
+				<< ", " << editData.resizeBox.y << ", " << editData.resizeBox.width
+				<< "}\n\n";
+			#endif
+		}
 	}
 
 
@@ -181,7 +226,15 @@ void editor::process(EditData& editData, TimeSeconds delta) {
 	else
 		creating = false;
 	if (IsKeyPressed(editData.controls[_delete])) {
-
+		std::cout << "editor::process: delete " << editData.selectedStructures.size()
+			<< " structures\n";
+		for (auto& rec : editData.selectedStructures) {
+			int i = rec - &editData.structures[0];
+			std::swap(*rec, editData.structures[editData.structures.size()-1]);
+			editData.structures.pop_back();
+		}
+		editData.selectedStructures.resize(0);
+		editData.resizeBox.width = 0;
 	}
 	if (IsKeyPressed(editData.controls[copy])) {
 
@@ -199,8 +252,9 @@ void editor::draw(EditData& editData, TimeSeconds delta, Rectangle player) {
 	Rectangle& newStructure = editData.newStructure;
 	Rectangle& selector = editData.selector;
 	Rectangle*& selectedStructure = editData.selectedStructure;
-
+	
 	BeginMode2D(editData.camera);
+	DrawCircle(0,0, 8, WHITE);
 	DrawRectangleRec(player, WHITE);
 
 	for (auto& structure : editData.structures)
@@ -218,6 +272,7 @@ void editor::draw(EditData& editData, TimeSeconds delta, Rectangle player) {
 	for (auto& rec : editData.selectedStructures) {
 		DrawRectangleLinesEx(*rec, 4, WHITE);
 	}
+	drawResizeBox(editData.resizeBox, 3, 10, {255,255,255,100});
 
 	EndMode2D();
 
