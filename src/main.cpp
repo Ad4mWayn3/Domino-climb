@@ -8,6 +8,9 @@ int main() {
 	SetTraceLogLevel(LOG_WARNING); // Logging only for priority at or above \
 		warnings.
 	InitWindow(resolution.width, resolution.height, "Domino climb");
+	SetWindowMinSize(resolution.width, resolution.height);
+	SetWindowState(FLAG_WINDOW_RESIZABLE);
+	SetWindowMaxSize(1920, 1080);
 	SetTargetFPS(60);
 	SetExitKey(KEY_NULL);
 	
@@ -51,6 +54,11 @@ int main() {
 		case Menu::menu_controls:
 			menu = gui::controlsMenu();
 			break;
+		}
+
+		if (IsWindowResized()) {
+			resolutionV.x = GetScreenWidth();
+			resolutionV.y = GetScreenHeight();
 		}
 		
 		EndDrawing();
