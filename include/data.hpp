@@ -35,7 +35,7 @@ using TimeSeconds = float;
 
 inline struct {
 	int width, height;
-} resolution{800, 600};
+} resolution{1200, 0};
 
 inline Vector2 resolutionV
 	{(float)resolution.width, (float)resolution.height};
