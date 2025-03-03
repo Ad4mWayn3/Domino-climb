@@ -5,6 +5,8 @@
 #include <string>
 
 int main() {
+	resolution.height = resolution.width * 9 / 16;
+	resolutionV.y = resolution.height;
 	SetTraceLogLevel(LOG_WARNING); // Logging only for priority at or above \
 		warnings.
 	InitWindow(resolution.width, resolution.height, "Domino climb");
