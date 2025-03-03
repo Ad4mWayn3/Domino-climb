@@ -2,33 +2,11 @@
 #include "gui.hpp"
 
 const Vector2 defaultButtonSize = {160, 60};
-const Vector2 center = resolutionV / 2;
+Vector2 center() { return resolutionV / 2; }
 
 Rectangle rectangleCenter(float x, float y, float width, float height) {
 	return {x - width/2, y - height/2, width, height};
 }
-
-/*
-void fitButtonsToGrid(std::vector<Button>& buttons, Rectangle bounds,
-	size_t rows, size_t cols, float spacing) {
-	float xJump = (bounds.width / cols),
-		yJump = (bounds.height / rows);
-
-	float width = xJump - spacing,
-		height = yJump - spacing;
-	
-	float x = bounds.x + spacing/2,
-		y = bounds.y + spacing/2;
-	
-	for (int i=0; i < buttons.size(); ++i) {
-		int hAlign = (i+1) % cols;
-		x = xJump * hAlign;
-		if (hAlign == 0 && i != 0)
-			y += yJump;
-		buttons[i] = {{x, y, width, height}, buttons[i].text};
-	}
-}
-*/
 
 using cstrlist = std::vector<const char*>;
 std::vector<Button> gui::buttonGrid(const cstrlist& buttonNames,
@@ -114,7 +92,7 @@ Menu gui::pauseMenu(int& gameMode, bool& pause, GameData& gameData,
 }
 
 Menu gui::controlsMenu() {
-	static Rectangle centerBounds = rectangleCenter(center.x, center.y, 1400, 600);
+	static Rectangle centerBounds = rectangleCenter(center().x, center().y, 1400, 600);
 	static bool gameControlIsSelected = false,
 		editControlIsSelected = false; 
 	static Controls selectedControl; // probably initalizes to zero which is \
@@ -145,7 +123,7 @@ Menu gui::controlsMenu() {
 		if (keyPress != KEY_NULL)
 			gameControls[selectedControl].key = keyPress;
 
-		static Vector2 bottomCenter {center.x, center.y + resolutionV.y / 4};
+		static Vector2 bottomCenter {center().x, center().y + resolutionV.y / 4};
 		static Rectangle bottomCenterBounds =
 			{bottomCenter.x, bottomCenter.y,
 			defaultButtonSize.x, defaultButtonSize.y};
