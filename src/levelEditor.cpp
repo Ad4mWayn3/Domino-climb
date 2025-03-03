@@ -1,4 +1,5 @@
 #include "levelEditor.hpp"
+#define DEBUG
 
 Rectangle fixNegativeDims(Rectangle rec) {
 	if (rec.width < 0) {
@@ -15,7 +16,8 @@ Rectangle fixNegativeDims(Rectangle rec) {
 // resizes a rectangle inside a resizeBox
 Rectangle resizeInnerRec(Rectangle inner, Rectangle bounds, Rectangle newBounds) {
 	// vectors inner1, inner2, outer1, outer2, outer1', outer2'
-	Vector2 i1{inner.x - bounds.x, inner.y - bounds.y}, i2{inner.width, inner.height},
+	Vector2
+		i1{inner.x - bounds.x, inner.y - bounds.y}, i2{inner.width, inner.height},
 		o1{bounds.x, bounds.y}, o2{bounds.width, bounds.height},
 		oP1{newBounds.x, newBounds.y}, oP2{newBounds.width, newBounds.height};
 
@@ -52,26 +54,51 @@ Rectangle getOuterRectangle(const std::vector<Rectangle*>& recs) {
 	return {origin.x, origin.y, end.x - origin.x, end.y - origin.y};
 }
 
-// HINT: ABSOLUTE VALUE
+Vector2 getSelectorPoint(Rectangle rec, Position pos) {
+	using p = Position;
+	constexpr static auto 
+		ul = p::upper_left, uc = p::upper_center, ur = p::upper_right,
+		cl = p::center_left, cr = p::center_right, ll = p::lower_left,
+		lc = p::lower_center, lr = p::lower_right;
+
+	Vector2 out{0,0};
+	if (pos == ul || pos == uc || pos == ur) {
+		out.y = rec.y;
+		if (pos == ul)	out.x = rec.x; else
+		if (pos == uc)	out.x = rec.x + rec.width / 2; else
+		if (pos == ur)	out.x = rec.x + rec.width;
+	} else if (pos == cl || pos == cr) {
+		out.y = rec.y + rec.height / 2;
+		if (pos == cl)	out.x = rec.x; else
+		if (pos == cr)	out.x = rec.x + rec.width;
+	} else if (pos == ll || pos == lc || pos == lr) {
+		out.y = rec.y + rec.height;
+		if (pos == ll)	out.x = rec.x; else
+		if (pos == lc)	out.x = rec.x + rec.width / 2; else
+		if (pos == lr)	out.x = rec.x + rec.width;
+	}
+
+	return out;
+}
+
 void drawResizeBox(Rectangle rec, float lineThick, float circleRadius, Color color) {
 	if (rec.width * rec.height == 0) return;
 	DrawRectangleLinesEx(rec, lineThick, color);
-//	DrawRectangleRec(rec, {255,255,255,60});
-	DrawCircle(rec.x, rec.y, circleRadius, color);								// upper left
-	DrawCircle(rec.x + rec.width / 2, rec.y, circleRadius, color);				// upper center
-	DrawCircle(rec.x + rec.width, rec.y, circleRadius, color);					// upper right
-	DrawCircle(rec.x, rec.y + rec.height /2, circleRadius, color);				// center left
-	DrawCircle(rec.x + rec.width /2, rec.y + rec.height /2, circleRadius, color); // center
-	DrawCircle(rec.x + rec.width, rec.y + rec.height /2, circleRadius, color);	// center right
-	DrawCircle(rec.x, rec.y + rec.height, circleRadius, color);					// lower left
-	DrawCircle(rec.x + rec.width / 2, rec.y + rec.height, circleRadius, color);	// lower center
-	DrawCircle(rec.x + rec.width, rec.y + rec.height, circleRadius, color);		// lower right
+
+	for (int i=0; i < 9; ++i) {
+		Vector2 point = getSelectorPoint(rec, (Position)i);
+		DrawCircle(point.x, point.y, circleRadius, color);
+	}
 }
 
 // checks if a point (vector2) is inside a rectangle
 bool inRectangle(Vector2 pos, Rectangle rec) {
 	return pos.x >= rec.x && pos.x <= (rec.x + rec.width)
 		&& pos.y >= rec.y && pos.y <= (rec.y + rec.height);
+}
+
+bool resizing(Vector2 pos, Rectangle rec, float resizeButtonSize) {
+
 }
 
 // selects the rectangles that collide with "selector"
@@ -88,6 +115,53 @@ void updateSelected(std::vector<Rectangle>& structures,
 	#ifdef DEBUG
 	std::cout << "updateSelected(recs, selected, selector)\n";
 	#endif
+}
+
+// i'm probably being too verbose in this definition, there has to be a simpler
+// way to resize
+Rectangle resize(Rectangle rec, Vector2 delta, Position position,
+	bool keepAspectRatio) {
+	switch (position) {
+	case Position::lower_right:
+		if (keepAspectRatio) {
+			rec.width += std::min(delta.x, delta.y);
+			rec.height += std::min(delta.x, delta.y);
+			break;
+		}
+		rec.width += delta.x;
+		rec.height += delta.y;
+		break;
+	case Position::lower_center:
+		rec.height += delta.y;
+		break;
+	case Position::center_right:
+		rec.width += delta.x;
+		break;
+	case Position::upper_left:
+		rec.x += delta.x;
+		rec.y += delta.y;
+		rec.width += delta.x;
+		rec.height += delta.y;
+		break;
+	case Position::upper_center:
+		rec.y += delta.y;
+		rec.height += delta.y;
+		break;
+	case Position::upper_right:
+		rec.y += delta.y;
+		rec.width += delta.x;
+		rec.height += delta.y;
+		break;
+	case Position::center_left:
+		rec.x += delta.x;
+		rec.width += delta.x;
+		break;
+	case Position::lower_left:
+		rec.x += delta.x;
+		rec.width += delta.x;
+		rec.height += delta.y;
+	}
+	return rec;
 }
 
 // TODO: delete this function; moving, resizing and copying should be separate
@@ -185,12 +259,15 @@ void editor::process(EditData& editData, TimeSeconds delta) {
 		editData.camera.target -= GetMouseDelta() / camera.zoom;
 	}
 
+
+	// selector logic
 	{
 		bool selecting = false;
 		if (IsMouseButtonPressed(editData.controls[select])) {
 			selector.x = mouseMapPos.x;
 			editData.selector.y = mouseMapPos.y;
 			selecting = true;
+			editData.selectedStructures.resize(0);
 			auto rec = getRectangleAt(mouseMapPos, editData.structures);
 			if (rec) editData.selectedStructures.push_back(rec);
 		} else if (IsMouseButtonDown(editData.controls[select])) {
@@ -211,12 +288,16 @@ void editor::process(EditData& editData, TimeSeconds delta) {
 		if ((selector.width != 0 && selector.height != 0) || selecting) {
 			updateSelected(editData.structures, editData.selectedStructures,
 				fixNegativeDims(selector));
-			editData.resizeBox = getOuterRectangle(editData.selectedStructures);
 			#ifdef DEBUG
 			std::cout << "editor::process: resizeBox = { " << editData.resizeBox.x
 				<< ", " << editData.resizeBox.y << ", " << editData.resizeBox.width
 				<< "}\n\n";
 			#endif
+		}
+		if (editData.selectedStructures.size() != 0) {
+			editData.resizeBox = getOuterRectangle(editData.selectedStructures);
+		} else {
+			editData.resizeBox.width = 0;
 		}
 	}
 
@@ -263,10 +344,9 @@ void editor::draw(EditData& editData, TimeSeconds delta, Rectangle player) {
 	if (!creating && newStructure.width != 0) {
 		editData.structures.push_back(fixNegativeDims(newStructure));
 	}
-
 	const static Color transparentWhite = {255, 255, 255, 40};
 
-	DrawRectangleRec(fixNegativeDims(newStructure), transparentWhite);
+	DrawRectangleRec(fixNegativeDims(newStructure), {127, 106, 79, 100});
 	DrawRectangleRec(fixNegativeDims(selector), transparentWhite);
 
 	for (auto& rec : editData.selectedStructures) {

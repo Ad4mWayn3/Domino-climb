@@ -3,8 +3,8 @@
 #include "data.hpp"
 
 enum class Position {
-	upper_left, upper_center, upper_right,
-	center_left, center, center_right,
+	upper_left=0, upper_center, upper_right,
+	center_left, center_right,
 	lower_left, lower_center, lower_right,
 };
 struct EditData {
@@ -14,7 +14,6 @@ struct EditData {
 		KEY_C, KEY_DELETE,
 		KEY_K, KEY_L, KEY_LEFT_SHIFT
 	};
-	Vector2 transformPoints[9]{}; // points intended to be indexed by Position values
 	std::vector<Rectangle>& structures;
 	std::vector<Rectangle*> selectedStructures;
 	std::vector<Rectangle*> clipboard;
@@ -22,7 +21,7 @@ struct EditData {
 	Rectangle* selectedStructure = nullptr;
 	Rectangle selector = {0.0f, 0.0f, 0.0f, 0.0f};
 	Rectangle resizeBox = {0.0f, 0.0f, 0.0f, 0.0f};
-	Camera2D camera{{0,0},{0,0},0.0f,0.6f};
+	Camera2D camera{{0,0},{0,0},0.0f,0.8f};
 	bool creating = false;
 	Rectangle newStructure{0.0f, 0.0f, 0.0f, 0.0f};
 
