@@ -1,3 +1,3 @@
 - level editor: implement move, clone and delete for multiple selected rectangles
-- level editor: implement resize for multiple rectangles
+- draw: render textures
 - platformer: custom zoom level
