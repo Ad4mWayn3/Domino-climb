@@ -1,5 +1,7 @@
 #include "levelEditor.hpp"
-#define DEBUG
+
+#define dbg(...) printf(__VA_ARGS__)
+#define dbg(...) // debug logging is turned off 
 
 Rectangle fixNegativeDims(Rectangle rec) {
 	if (rec.width < 0) {
@@ -16,17 +18,25 @@ Rectangle fixNegativeDims(Rectangle rec) {
 // resizes a rectangle inside a resizeBox
 Rectangle resizeInnerRec(Rectangle inner, Rectangle bounds, Rectangle newBounds) {
 	// vectors inner1, inner2, outer1, outer2, outer1', outer2'
-	Vector2
-		i1{inner.x - bounds.x, inner.y - bounds.y}, i2{inner.width, inner.height},
-		o1{bounds.x, bounds.y}, o2{bounds.width, bounds.height},
-		oP1{newBounds.x, newBounds.y}, oP2{newBounds.width, newBounds.height};
+	float x1 = (inner.x - bounds.x) * newBounds.width / bounds.width,
+		y1 = (inner.y - bounds.y) * newBounds.height / bounds.height,
+		x2 = (inner.x + inner.width - bounds.x) * newBounds.width / bounds.width,
+		y2 = (inner.y + inner.height - bounds.y) * newBounds.height / bounds.height;
 
-	return {
-		i1.x * oP1.x / o1.x,
-		i1.y * oP1.y / o1.y,
-		i2.x * oP2.x / o2.x,
-		i2.y * oP2.y / o2.y,
+	Rectangle out {
+		x1 + newBounds.x,
+		y1 + newBounds.y,
+		x2 - x1,
+		y2 - y1
 	};
+
+	dbg(
+		"resizeInnerRec: input = { %f, %f, %f, %f }\n"
+		"resizeInnerRec: output = { %f, %f, %f, %f }\n",
+		inner.x, inner.y, inner.width, inner.height,
+		out.x, out.y, out.width, out.height);
+
+	return out;
 }
 
 Rectangle* getRectangleAt(Vector2 position, \
@@ -58,8 +68,8 @@ Vector2 getSelectorPoint(Rectangle rec, Position pos) {
 	using p = Position;
 	constexpr static auto 
 		ul = p::upper_left, uc = p::upper_center, ur = p::upper_right,
-		cl = p::center_left, cr = p::center_right, ll = p::lower_left,
-		lc = p::lower_center, lr = p::lower_right;
+		cl = p::center_left, c = p::center, cr = p::center_right, 
+		ll = p::lower_left, lc = p::lower_center, lr = p::lower_right;
 
 	Vector2 out{0,0};
 	if (pos == ul || pos == uc || pos == ur) {
@@ -67,9 +77,10 @@ Vector2 getSelectorPoint(Rectangle rec, Position pos) {
 		if (pos == ul)	out.x = rec.x; else
 		if (pos == uc)	out.x = rec.x + rec.width / 2; else
 		if (pos == ur)	out.x = rec.x + rec.width;
-	} else if (pos == cl || pos == cr) {
+	} else if (pos == cl || pos == cr || pos == c) {
 		out.y = rec.y + rec.height / 2;
 		if (pos == cl)	out.x = rec.x; else
+		if (pos == c)	out.x = rec.x + rec.width / 2; else
 		if (pos == cr)	out.x = rec.x + rec.width;
 	} else if (pos == ll || pos == lc || pos == lr) {
 		out.y = rec.y + rec.height;
@@ -97,37 +108,80 @@ bool inRectangle(Vector2 pos, Rectangle rec) {
 		&& pos.y >= rec.y && pos.y <= (rec.y + rec.height);
 }
 
-bool resizing(Vector2 pos, Rectangle rec, float resizeButtonSize) {
+// returns the position of the resize button that is being pressed, -1 if none
+Position resizeButtonPressed(Vector2 pos, Rectangle rec, float resizeButtonSize) {
+	float x = rec.x, y = rec.y, width = rec.width, height = rec.height;
+	using p = Position;
+	std::map<Position,Vector2> buttonAt {
+		{p::upper_left, {x,y}},							{p::upper_center, {x + width/2, y}},
+		{p::upper_right, {x + width, y}},				{p::center_left, {x, y + height/2}},
+		{p::center_right, {x + width, y + height/2}},	{p::center, {x + width/2, y + height/2}},
+		{p::lower_left, {x, y + height}},				{p::lower_center, {x + width/2, y + height}},
+		{p::lower_right, {x + width, y + height}},
+	};
+	
+	for (int i=0; i < (int)Position::none; ++i) {
+		if (CheckCollisionPointCircle(pos, buttonAt[(p)i], resizeButtonSize)) {
+			return (Position)i;
+		}
+	}
 
+	return Position::none;
 }
 
 // selects the rectangles that collide with "selector"
-void updateSelected(std::vector<Rectangle>& structures,
-	std::vector<Rectangle*>& selected, Rectangle selector) {
+void updateSelected(std::vector<Rectangle*>& selected,
+	std::vector<Rectangle>& structures, Rectangle selector, bool append) {
 	if (selected.capacity() < structures.size())
 		selected.reserve(structures.size());
 
-//	selected.resize(0);
-	for (auto& rec : structures)
-		if (CheckCollisionRecs(selector, rec))
+	if (!append) {
+		selected.resize(0);
+#ifdef DEBUG
+		std::cout << "updateSelected: resizing selected to 0\n";
+#endif
+	}
+#ifdef DEBUG
+	std::cout << "updateSelected: checking for collisions in " << structures.size()
+		<< " structures\n";
+#endif
+	if (!append) for (auto& rec : structures) {
+		if (CheckCollisionRecs(selector, rec)) {
+#ifdef DEBUG			
+			printf("updateSelected: found rectangle { %f, %f, %f, %f }\n",
+				rec.x, rec.y, rec.width, rec.height
+			);
+#endif
 			selected.push_back(&rec);
-
-	#ifdef DEBUG
-	std::cout << "updateSelected(recs, selected, selector)\n";
-	#endif
+		}
+	} else for (auto& rec : structures) {
+#ifdef DEBUG
+		std::cout << "updateSelected: verifying copies\n";
+#endif
+		if (CheckCollisionRecs(selector, rec)) {
+			for (auto address : selected)
+				if (&rec == address) goto next;
+			selected.push_back(&rec);
+		}
+		next:
+	}
+#ifdef DEBUG
+	std::cout << "updateSelected: currently selected " << selected.size()
+		<< " structures\n\n";
+#endif
 }
 
-// i'm probably being too verbose in this definition, there has to be a simpler
-// way to resize
-Rectangle resize(Rectangle rec, Vector2 delta, Position position,
-	bool keepAspectRatio) {
+// resizes a rectangle by displacing the resize node by delta.
+// TODO: implement keepAspectRatio
+Rectangle resize(Rectangle rec, Vector2 delta, Position position) {
+	dbg("resize(rec, delta, position);\n");
+
 	switch (position) {
+	case Position::center:
+		rec.x += delta.x;
+		rec.y += delta.y;
+		break;
 	case Position::lower_right:
-		if (keepAspectRatio) {
-			rec.width += std::min(delta.x, delta.y);
-			rec.height += std::min(delta.x, delta.y);
-			break;
-		}
 		rec.width += delta.x;
 		rec.height += delta.y;
 		break;
@@ -140,25 +194,25 @@ Rectangle resize(Rectangle rec, Vector2 delta, Position position,
 	case Position::upper_left:
 		rec.x += delta.x;
 		rec.y += delta.y;
-		rec.width += delta.x;
-		rec.height += delta.y;
+		rec.width -= delta.x;
+		rec.height -= delta.y;
 		break;
 	case Position::upper_center:
 		rec.y += delta.y;
-		rec.height += delta.y;
+		rec.height -= delta.y;
 		break;
 	case Position::upper_right:
 		rec.y += delta.y;
 		rec.width += delta.x;
-		rec.height += delta.y;
+		rec.height -= delta.y;
 		break;
 	case Position::center_left:
 		rec.x += delta.x;
-		rec.width += delta.x;
+		rec.width -= delta.x;
 		break;
 	case Position::lower_left:
 		rec.x += delta.x;
-		rec.width += delta.x;
+		rec.width -= delta.x;
 		rec.height += delta.y;
 	}
 	return rec;
@@ -211,6 +265,7 @@ void editStructure(EditData& data, Rectangle& structure, TimeSeconds delta,
 }
 
 void editor::loadMap(std::vector<Rectangle>& mapData, const char* mapFileName) {
+	std::cout << "editor::loadMap\n\n";
 	std::ifstream mapFile{mapFileName};
 	if (mapData.size() != 0) mapData = {};
 
@@ -229,6 +284,7 @@ void editor::loadMap(std::vector<Rectangle>& mapData, const char* mapFileName) {
 
 // TODO: It should run on a separate thread
 void editor::saveMap(const std::vector<Rectangle>& mapData, const char* mapFileName) {
+	std::cout << "editor::saveMap\n\n";
 	std::ofstream mapFile;
 	mapFile.open(mapFileName);
 	std::cout << "saving " << mapFileName << '\n';
@@ -247,6 +303,7 @@ void editor::process(EditData& editData, TimeSeconds delta) {
 	Rectangle& selector = editData.selector;
 	bool& creating = editData.creating;
 	Vector2 mouseMapPos = GetMousePosition() / camera.zoom + camera.target;
+	Vector2 mouseDelta = GetMouseDelta() / camera.zoom;
 
 	if (!creating) {
 		newStructure.x = roundf(mouseMapPos.x);
@@ -258,54 +315,79 @@ void editor::process(EditData& editData, TimeSeconds delta) {
 	if (IsMouseButtonDown(editData.controls[scroll])) {
 		editData.camera.target -= GetMouseDelta() / camera.zoom;
 	}
-
-
-	// selector logic
+	
+	// resize only if not already selecting
 	{
-		bool selecting = false;
+		if (editData.selector.width * editData.selector.height == 0)
+		if (editData.resizePos != Position::none) {
+			Rectangle newSize = 
+				resize(editData.resizeBox, mouseDelta, editData.resizePos);
+			for (auto& rec : editData.selectedStructures) {
+				*rec = resizeInnerRec(*rec, editData.resizeBox, newSize);
+			}
+			editData.resizeBox = newSize;
+		}
+
 		if (IsMouseButtonPressed(editData.controls[select])) {
-			selector.x = mouseMapPos.x;
-			editData.selector.y = mouseMapPos.y;
-			selecting = true;
-			editData.selectedStructures.resize(0);
-			auto rec = getRectangleAt(mouseMapPos, editData.structures);
-			if (rec) editData.selectedStructures.push_back(rec);
-		} else if (IsMouseButtonDown(editData.controls[select])) {
-			selector.width = mouseMapPos.x - selector.x;
-			selector.height = mouseMapPos.y - selector.y;
-			selecting = true;
-		} else {
-			selector.width = 0;
-			selector.height = 0;
-		}
-		if (!IsKeyDown(editData.controls[select_multiple]) && selecting) {
-//			selector.width = 0;
-			editData.selectedStructures.resize(0);
-//				editData.resizeBox.x = 0;
-//				editData.resizeBox.y = 0;
-		}
-		
-		if ((selector.width != 0 && selector.height != 0) || selecting) {
-			updateSelected(editData.structures, editData.selectedStructures,
-				fixNegativeDims(selector));
-			#ifdef DEBUG
-			std::cout << "editor::process: resizeBox = { " << editData.resizeBox.x
-				<< ", " << editData.resizeBox.y << ", " << editData.resizeBox.width
-				<< "}\n\n";
-			#endif
-		}
-		if (editData.selectedStructures.size() != 0) {
-			editData.resizeBox = getOuterRectangle(editData.selectedStructures);
-		} else {
-			editData.resizeBox.width = 0;
+			editData.resizePos =
+				resizeButtonPressed(mouseMapPos, editData.resizeBox,
+				editor::resizeButtonSize);
+			dbg("editor::process: resizePos = %i\n", (int)editData.resizePos);
+		} else if (IsMouseButtonReleased(editData.controls[select])) {
+			editData.resizePos = Position::none;
 		}
 	}
 
+	editData.creating = [&editData, &newStructure, mouseMapPos]{
+		bool out = false;
+		if (IsKeyPressed(editData.controls[create])) {
+			newStructure.x = mouseMapPos.x;
+			newStructure.y = mouseMapPos.y;
+			out = true;
+		} else if (IsKeyDown(editData.controls[create])) {
+			newStructure.width = mouseMapPos.x - newStructure.x;
+			newStructure.height = mouseMapPos.y - newStructure.y;
+			out = true;
+		} else if (IsKeyReleased(editData.controls[create])) {
+			out = false;
+			editData.structures.push_back(fixNegativeDims(newStructure));
+		} else {
+			out = false;
+			newStructure.width = 0;
+		}
 
-	if (IsKeyDown(editData.controls[create]))
-		creating = true;
-	else
-		creating = false;
+		return out;
+	}();
+	
+	// selector logic
+	if (editData.resizePos == Position::none)
+	editData.resizeBox = [&]{
+		bool selectMultiple = IsKeyDown(editData.controls[select_multiple]);
+		if (IsMouseButtonPressed(editData.controls[select])) {
+			if (!selectMultiple) editData.selectedStructures.resize(0);
+
+			selector.x = mouseMapPos.x;
+			selector.y = mouseMapPos.y;
+			
+			auto recAtMouse = getRectangleAt(mouseMapPos,editData.structures);
+			if (recAtMouse) editData.selectedStructures.push_back(recAtMouse);
+		} else if (IsMouseButtonDown(editData.controls[select])) {
+			selector.width = mouseMapPos.x - selector.x;
+			selector.height = mouseMapPos.y - selector.y;
+		} else { selector.width = 0; }
+
+		if (selector.width * selector.height != 0) {
+			updateSelected(editData.selectedStructures, editData.structures,
+				fixNegativeDims(selector), selectMultiple);
+		}
+
+		if (editData.selectedStructures.size() > 0)
+			return getOuterRectangle(editData.selectedStructures);
+
+		return Rectangle{0.0f, 0.0f, 0.0f, 0.0f};
+	}();
+
+
 	if (IsKeyPressed(editData.controls[_delete])) {
 		std::cout << "editor::process: delete " << editData.selectedStructures.size()
 			<< " structures\n";
@@ -341,9 +423,6 @@ void editor::draw(EditData& editData, TimeSeconds delta, Rectangle player) {
 	for (auto& structure : editData.structures)
 		DrawRectangleRec(structure, BROWN);
 
-	if (!creating && newStructure.width != 0) {
-		editData.structures.push_back(fixNegativeDims(newStructure));
-	}
 	const static Color transparentWhite = {255, 255, 255, 40};
 
 	DrawRectangleRec(fixNegativeDims(newStructure), {127, 106, 79, 100});
@@ -352,7 +431,7 @@ void editor::draw(EditData& editData, TimeSeconds delta, Rectangle player) {
 	for (auto& rec : editData.selectedStructures) {
 		DrawRectangleLinesEx(*rec, 4, WHITE);
 	}
-	drawResizeBox(editData.resizeBox, 3, 10, {255,255,255,100});
+	drawResizeBox(editData.resizeBox, 3, editor::resizeButtonSize, {255,255,255,100});
 
 	EndMode2D();
 

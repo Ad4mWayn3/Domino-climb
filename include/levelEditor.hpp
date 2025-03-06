@@ -4,8 +4,9 @@
 
 enum class Position {
 	upper_left=0, upper_center, upper_right,
-	center_left, center_right,
+	center_left, center, center_right,
 	lower_left, lower_center, lower_right,
+	none
 };
 struct EditData {
 	int controls[edit_count]{ // controls intended to be indexed by EditControls values
@@ -23,6 +24,8 @@ struct EditData {
 	Rectangle resizeBox = {0.0f, 0.0f, 0.0f, 0.0f};
 	Camera2D camera{{0,0},{0,0},0.0f,0.8f};
 	bool creating = false;
+//	bool resizing = false;
+	Position resizePos = Position::none;
 	Rectangle newStructure{0.0f, 0.0f, 0.0f, 0.0f};
 
 	EditData(std::vector<Rectangle>& _structures)
@@ -30,6 +33,7 @@ struct EditData {
 };
 
 namespace editor {
+	const float resizeButtonSize = 8.0f;
 	void draw(EditData& editData, TimeSeconds delta, Rectangle player); 
 	void process(EditData& editData, TimeSeconds delta);
 	void loadMap(std::vector<Rectangle>& mapData, const char* mapFileName);
