@@ -98,20 +98,14 @@ struct {
 
 class Player {
 	int x, y;
-	
+	int rotation;
 	void moveAxis(int moveAm, bool& axisCollide, Vector2 shift, Rectangles recs);
 public:
 	int height, width;
-	Texture tex;
 	bool collidingX=false, collidingY=false, onGround=false;
 	Player(int _x, int _y, int _width, int _height)
 	:	x{_x}, y{_y}
 	,	width{_width}, height{_height}{}
-
-	Player(int _x, int _y, int _width, int _height, Texture _tex)
-	:	x{_x}, y{_y}
-	,	width{_width}, height{_height}
-	,	tex{_tex}{}
 
 	int maxFixCollisionSize() { 
 		int max = std::max(width, height),
@@ -121,11 +115,9 @@ public:
 	Vector2 position(){ return {(float)x, (float)y}; }
 	Vector2 center(){ return {(float)x + width / 2.0f,
 		(float)y + height / 2.0f}; }
-	Rectangle rectangle(){
-		return {(float)x, (float)y, (float)width, (float)height};
-	}
 
-	void draw();
+	Rectangle rectangle();
+	void draw(Image& tex);
 	bool rotate(Vector2 axis, Rectangles recs, bool forceRotate = false);
 	Player& moveX(float speed, Rectangles recs);
 	Player& moveY(float speed, Rectangles recs);
@@ -143,6 +135,7 @@ struct GameData{
 //	Rectangle structure{300,900,1800,30};
 	Camera2D camera{{0,0}, {0,0}, 0, 1};
 	std::vector<Rectangle> structures{};
+	Image domino;
 	Vector2 maxVel{450,40000};
 	Vector2 accel{1777,0};
 	Vector2 gravity{0,2700};

@@ -8,7 +8,6 @@ bool checkCollisions(Rectangle rec, Rectangles recs) {
 	return true;
 }
 
-
 // this function can probably be optimized to check a single rectangle \
 	(see Player::moveAxis).
 bool checkAdjacents(Rectangle rec, Rectangles recs, Axis axis, bool& onGround) {
@@ -28,22 +27,33 @@ bool checkAdjacents(Rectangle rec, Rectangles recs, Axis axis, bool& onGround) {
 	return true;
 } 
 
-void Player::moveAxis(int moveAm, bool& axisCollide, Vector2 shift, Rectangles recs) {
-	while (moveAm) {
-		if (!checkCollisions({float(x+shift.x), float(y+shift.y), \
-			(float)width, (float)height}, recs)) {
-			axisCollide = true;
-			return;
-		}
-		x += shift.x;
-		y += shift.y;
-		moveAm -= shift.x + shift.y;
-	}
-	axisCollide = false;
+void Player::draw(Image& tex) {
+	//	DrawRectangleRec(rectangle(), WHITE);
+	//	static int prevRot = rotation;
+	assert(tex.format != PIXELFORMAT_UNCOMPRESSED_GRAYSCALE
+		&& tex.format != PIXELFORMAT_COMPRESSED_DXT1_RGB
+		&& "texture does not have alpha channel"
+	);
+	
+	//	if (prevRot != rotation) ImageRotate(&tex, rotation);
+	DrawTexturePro( LoadTextureFromImage(tex),
+		{0,0,(float)tex.width,(float)tex.height}, rectangle(),
+		{0,0}, rotation, WHITE
+	);
 }
 
-void Player::draw() {
-	DrawRectangleRec(rectangle(), WHITE);
+Rectangle Player::rectangle() {
+	if (rotation % 180 == 0) {
+		Vector2 axis = {x + width/2, y + height/2};
+		Vector2 newOrigin = {-axis.y, axis.x - height}; // this is the axis rotated
+		// 90 degrees counterclockwise, doesn't look intuitive but trust the math :)
+		Rectangle rotateRec = {x + axis.x + newOrigin.x, y - (axis.y + newOrigin.y),
+			height, width};
+		assert(rotateRec.width > 0 && rotateRec.height > 0);
+		return rotateRec;
+	}
+
+	return {(float)x, (float)y, (float)width, (float)height};
 }
 
 // the axis is relative to the player's position
@@ -69,15 +79,33 @@ bool Player::rotate(Vector2 axis, Rectangles recs, bool forceRotate) {
 
 	if (rotated || forceRotate) {
 	assign:
-		x = rotateRec.x;
-		y = rotateRec.y;
-		width = rotateRec.width;
-		height = rotateRec.height;
-	}
-
-	if (!(rotated || forceRotate)) DrawRectangleRec(rotateRec, BROWN);
+		rotation += 90;
+		if (rotation > 360) rotation -= 360;
+//		x = rotateRec.x;
+//		y = rotateRec.y;
+//		width = rotateRec.width;
+//		height = rotateRec.height;
+	} else DrawRectangleRec(rotateRec, BROWN);
 
 	return rotated || forceRotate;
+}
+
+void Player::moveAxis(int moveAm, bool& axisCollide, Vector2 shift, Rectangles recs) {
+	while (moveAm) {
+		Rectangle box = rectangle();
+		assert(box.width > 0 && box.height > 0);
+		box.x += shift.x;
+		box.y += shift.y;
+
+		if (!checkCollisions(box, recs)) {
+			axisCollide = true;
+			return;
+		}
+		x += shift.x;
+		y += shift.y;
+		moveAm -= shift.x + shift.y;
+	}
+	axisCollide = false;
 }
 
 Player& Player::moveX(float speed, Rectangles recs) {
@@ -120,32 +148,34 @@ float drag(float speed, float dragRate, float delta) {
 }
 
 float capSpeed(float speed, float speedCap) {
-	if (fabs(speed) > speedCap)
-		return speed < 0? -speedCap : speedCap;
-	return speed;
+	return Clamp(speed, -speedCap, speedCap);
 }
 
 // should be called inside a Mode2D context
-void cameraFollowRadius(Camera2D& camera, Player& player, float maxOffset) {
+void cameraFollowRadius(Camera2D& camera, Vector2 target, float maxOffset) {
 	Vector2 camCenter = camera.target + (resolutionV / 2);
-	Vector2 diff = player.center() - camCenter;
+	Vector2 diff = target - camCenter;
 	
 	// camera moves in the player's direction until the offset is in bounds.
 	while (Vector2LengthSqr(diff) > (maxOffset * maxOffset)) {
 		camCenter = camera.target + (resolutionV / 2);
-		diff = player.center() - camCenter;
+		diff = target - camCenter;
 		camera.target += Vector2Normalize(diff);
 	}
 }
 
 // should be called inside a Mode2D context
-void cameraCursorLook(Camera2D& camera, Player& player, float maxOffset) {
+void cameraCursorLook(Camera2D& camera, Vector2 target, float maxOffset) {
 	Vector2 camCenter = camera.target + (resolutionV / 2);
-	camera.target = player.center() - resolutionV / 2 ;
+	camera.target = target - resolutionV / 2 ;
 	Vector2 mouse = {(float)GetMouseX(), (float)GetMouseY()};
 	Vector2 playerToMouse = mouse - resolutionV / 2;
 	camera.target += Vector2LengthSqr(playerToMouse) > (maxOffset*maxOffset) ?
 		Vector2Normalize(playerToMouse) * maxOffset : playerToMouse;
+}
+
+Vector2 cameraFollow(Vector2 target, Vector2 offset) {
+	return target - resolutionV / 2 + offset;
 }
 
 // note: drawing can be handled inside process, but doing it separately \
@@ -153,7 +183,7 @@ void cameraCursorLook(Camera2D& camera, Player& player, float maxOffset) {
 void platformer::draw(GameData& gameData) {
 	BeginMode2D(gameData.camera);
 
-	gameData.player.draw();
+	gameData.player.draw(gameData.domino);
 
 	for (auto& structure : gameData.structures) {
 		DrawRectangleRec(structure, BLUE);
@@ -208,16 +238,8 @@ void platformer::process(GameData& gameData, float delta) {
 
 	player.moveX(vel.x * delta, gameData.structures)
 		.moveY(vel.y * delta, gameData.structures);
-	
-	switch (gameData.cameraMode) {
-	case mouselook:
-		cameraCursorLook(gameData.camera, player, 400);
-		break;
-	case follow:
-		cameraFollowRadius(gameData.camera, player, 400);
-		break;
-	}
 
+	gameData.camera.target = cameraFollow(player.center(), {0.0f, 0.0f});
 
 	if (player.collidingY) vel.y = 0;
 	if (!player.onGround) vel.y += gameData.gravity.y * delta;

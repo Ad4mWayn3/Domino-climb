@@ -1,6 +1,7 @@
 #include "gui.hpp"
 #include "levelEditor.hpp"
 #include "platformer.hpp"
+#include "resource_dir.h"
 
 #include <string>
 
@@ -17,8 +18,10 @@ int main() {
 	SetTargetFPS(60);
 	SetExitKey(KEY_NULL);
 	
+//	SearchAndSetResourceDir("resources");
 	GameData gameData{};
 	EditData editData{gameData.structures};
+	gameData.domino = LoadImage("resources/domino.png");
 	editor::loadMap(gameData.structures, "resources/map.txt");
 	gui::init();
 	
@@ -66,6 +69,7 @@ int main() {
 		
 		EndDrawing();
 	}
-	
+
+	UnloadImage(gameData.domino);
 	CloseWindow();
 }
