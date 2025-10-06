@@ -8,6 +8,11 @@ all:
 	g++ src/**.cpp -o collisions $(includeall)
 	@./collisions.exe
 
+marble:
+	@echo "building marble engine"
+	g++ tests/marble2.cpp -o marble.exe $(includeall)
+	@./marble.exe
+
 run: collisions.exe
 	@./collisions.exe
 
