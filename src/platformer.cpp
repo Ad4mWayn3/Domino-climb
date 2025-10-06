@@ -28,7 +28,7 @@ bool checkAdjacents(Rectangle rec, Rectangles recs, Axis axis, bool& onGround) {
 } 
 
 void Player::draw(Image& tex) {
-	//	DrawRectangleRec(rectangle(), WHITE);
+		DrawRectangleRec(rectangle(), WHITE);
 	//	static int prevRot = rotation;
 	assert(tex.format != PIXELFORMAT_UNCOMPRESSED_GRAYSCALE
 		&& tex.format != PIXELFORMAT_COMPRESSED_DXT1_RGB

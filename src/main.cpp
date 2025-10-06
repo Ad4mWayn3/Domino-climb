@@ -6,7 +6,7 @@
 #include <string>
 
 int main() {
-	resolution.width = 1920;
+	resolution.width = 1200;
 	resolution.height = resolution.width * 9 / 16;
 	resolutionV = {(float)resolution.width, (float)resolution.height};
 	SetTraceLogLevel(LOG_WARNING); // Logging only for priority at or above \
