@@ -2,6 +2,8 @@
 #include <raymath.h>
 #include <rlgl.h>
 
+#include <iostream>
+
 using f = float[];
 
 int main() {
@@ -31,9 +33,8 @@ int main() {
 		BeginShaderMode(shader);
 		DrawTexturePro(tex, {0.,0.,200.,200.}, {400.,90.,200.,200.}, {0.,0.}, 0.,
 			WHITE);
+		//DrawRectanglePro({400.,90.,200.,200.}, {0.,0.}, 0., WHITE);
 		EndShaderMode();
-		DrawTexturePro(tex, {0.,0.,200.,200.}, {90.,90.,200.,200.}, {0.,0.}, 0.,
-			WHITE);
 		EndDrawing();
 	}
 
