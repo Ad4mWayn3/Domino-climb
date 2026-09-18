@@ -112,6 +112,7 @@ main :: proc() {
 	context.assertion_failure_proc = trace.assertion_failure_proc
 
 	game = game_init("res/level_fix.bin")
+	defer game_deinit(game)
 
 	rl.SetTraceLogLevel(.WARNING)
 	rl.SetConfigFlags({.WINDOW_RESIZABLE, .MSAA_4X_HINT})

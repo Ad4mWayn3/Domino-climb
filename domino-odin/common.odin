@@ -96,7 +96,9 @@ range_intersection_depth :: proc(a: Range(f32), b: Range(f32)) -> f32 {
 }
 
 vec_reflect :: proc(v, axis: $V) -> V {
-	assert(abs(linalg.vector_length(v)-1.) < 0.0001)
+	//assert(abs(linalg.vector_length(v)-1.) < 0.0001)
+	fmt.printf("common::vec_reflect: len = %f\n", linalg.vector_length(v))
+
 	b := axis * (2 * linalg.dot(axis,v))
 	return b - v
 }

@@ -1,5 +1,6 @@
 package main
 
+import "core:fmt"
 import "core:math/linalg"
 import "core:mem"
 import "core:os"
@@ -24,6 +25,15 @@ PLAYER_WIDTH :: 1./20.
 PLAYER_HEIGHT :: PLAYER_WIDTH * 2.
 PLAYER_JUMP_IMPULSE :: 0.7
 PLAYER_HORIZONTAL_ACCEL :: 0.14
+
+Game :: struct {
+	player: Player,
+	static_props: []rl.Rectangle,
+	action_buffer: Action_Buffer,
+	camera: rl.Camera2D,
+}
+
+WORLD_GRAVITY :: 0.23
 
 player_aabb :: proc(player: Player) -> rl.Rectangle {
 	// Turns the bounding-box 90 degrees around the geometric center
@@ -67,22 +77,20 @@ player_move :: proc(player: ^Player, world: []rl.Rectangle, delta: f32) {
 		move)
 	if !collision.found do return
 
-	// if a collision was found, the motion vector should have an angle > 90deg.
-	assert(linalg.dot(collision.axis, move) < 0 \
-		// axis is expected to be normalized
-		&& abs(linalg.vector_length(collision.axis) - 1.) < 0.0001)
+	// // if a collision was found, the motion vector should have an angle > 90deg.
+	// assert(linalg.dot(collision.axis, move) < 0 \
+	// 	// axis is expected to be normalized
+	// 	&& abs(linalg.vector_length(collision.axis) - 1.) < 0.0001)
+	{
+		fmt.printf("player_move:\n"+
+			"dot: %f\n"+
+			"axis length: %f\n",
+			linalg.dot(collision.axis, move),
+			linalg.vector_length(collision.axis))
+	}
 
 	player.velocity = vec_reflect(player.velocity, collision.axis)
 }
-
-Game :: struct {
-	player: Player,
-	static_props: []rl.Rectangle,
-	action_buffer: Action_Buffer,
-	camera: rl.Camera2D,
-}
-
-WORLD_GRAVITY :: 0.23
 
 rec_intersects_recs :: proc(rec: rl.Rectangle,
 	recs: Closure($Ctx, VTable_Array_Readonly(Ctx, rl.Rectangle)),

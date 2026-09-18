@@ -1,0 +1,4 @@
+errors:
+	within `geometry::convex_set_move_and_collide`, Collision.support_point_b
+	\ actually refers to `a`'s support point, `collision_checker` is most likely
+	\ at fault here.

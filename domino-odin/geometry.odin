@@ -18,24 +18,6 @@ VTable_Convex_Set :: struct($Ctx: typeid) {
 	origin: proc(ctx: Ctx) -> [2]f32,
 }
 
-// gets the normal direcion of the boundary in the direction implied by `p`.
-convex_set_support_point_from_point :: proc(
-	convex_set: Closure($Ctx, VTable_Convex_Set(Ctx)),
-	p: [2]f32,
-) -> [2]f32 {
-	p_mag := sqrt(p.x*p.x,p.y*p.y)
-	return convex_set.vtable.support_point(convex_set.ctx, p/p_mag)
-}
-
-// gets the normal direction of the boundary in the angle `theta` in radians.
-// `theta` = 0 is equivalent to the direction {x=1, y=0}
-convex_set_support_point_from_angle :: proc(
-	convex_set: Closure($Ctx, VTable_Convex_Set(Ctx)),
-	theta: f32,
-) -> [2]f32 {
-	return convex_set.vtable.support_point(convex_set.ctx, {cos(theta),sin(theta)})
-}
-
 Collision :: struct {
 	// whether an intersection was found
 	found: bool,
@@ -57,6 +39,24 @@ COLLISION_NONE :: Collision {
 	axis = {0,0},
 	support_point_a = {0,0},
 	support_point_b = {0,0}
+}
+
+// gets the normal direcion of the boundary in the direction implied by `p`.
+convex_set_support_point_from_point :: proc(
+	convex_set: Closure($Ctx, VTable_Convex_Set(Ctx)),
+	p: [2]f32,
+) -> [2]f32 {
+	p_mag := sqrt(p.x*p.x,p.y*p.y)
+	return convex_set.vtable.support_point(convex_set.ctx, p/p_mag)
+}
+
+// gets the normal direction of the boundary in the angle `theta` in radians.
+// `theta` = 0 is equivalent to the direction {x=1, y=0}
+convex_set_support_point_from_angle :: proc(
+	convex_set: Closure($Ctx, VTable_Convex_Set(Ctx)),
+	theta: f32,
+) -> [2]f32 {
+	return convex_set.vtable.support_point(convex_set.ctx, {cos(theta),sin(theta)})
 }
 
 EPSILON :: 1./64.
@@ -87,8 +87,22 @@ convex_set_move_and_collide :: proc(
 
 	assert(collision.found)
 	// the normal should be pointing outward from the static body
-	assert(a.vtable.support_point(a.ctx, linalg.normalize(-collision.axis)) \
-		== collision.support_point_a)
+
+	// assert(a.vtable.support_point(a.ctx, linalg.normalize(-collision.axis)) \
+	// 	== collision.support_point_a)
+	{
+		fmt.printf("convex_set_move_and_collide:\n"+
+			"vtable point a: %v\n"+
+			"vtable point -a: %v\n"+
+			"stored point a: %v\n"+
+			"stored point b: %v\n",
+			a.vtable.support_point(a.ctx, linalg.normalize(-collision.axis)),
+			a.vtable.support_point(a.ctx, linalg.normalize(collision.axis)),
+			collision.support_point_a,
+			collision.support_point_b)
+	}
+
+
 	return collision
 }
 
@@ -167,12 +181,12 @@ world_collision_check :: proc(world: []rl.Rectangle, obj: rl.Rectangle
 	for shape in world {
 		collision_test := rec_collision_checker_rec(shape, obj)
 		if collision_test.found {
-			t := obj
-			t.x += collision_test.axis.x
-			t.y += collision_test.axis.y
-
-			// the collision should be resolved statically
-			assert(rec_collision_checker_rec(shape, t).found == false)
+			// t := obj
+			// t.x += collision_test.axis.x
+			// t.y += collision_test.axis.y
+			// this assertion will only be true if the axis is scaled to be
+			// the minimum translation vector
+			//assert(rec_collision_checker_rec(shape, t).found == false)
 			return collision_test
 		}
 	}
