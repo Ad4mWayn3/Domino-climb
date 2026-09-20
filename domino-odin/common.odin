@@ -5,7 +5,27 @@ import "core:fmt"
 import "core:math/linalg"
 import "core:slice"
 
-slice_size_of :: #force_inline proc(xs: []$T) -> uintptr {
+// packs a context value and a vtable of callbacks
+Closure :: struct($Ctx, $VTable: typeid) {
+	ctx: Ctx,
+	vtable: VTable,
+}
+
+VTable_Array_Readonly :: struct($Ctx, $Inner: typeid) {
+	at: proc(ctx: Ctx, i: uintptr) -> Inner,
+	len: proc(ctx: Ctx) -> uintptr,
+}
+
+VTable_Array_Trait :: struct($Ctx, $Inner: typeid) {
+	using readonly: VTable_Array_Readonly,
+	set: proc(ctx: Ctx, i: uintptr, x: Inner),
+}
+
+VTable_Getter :: struct($Ctx, $Attrib, $T: typeid) { 
+	get: proc(Ctx, T) -> Attrib
+}
+
+slice_size_of :: #force_inline proc "contextless" (xs: []$T) -> uintptr {
 	return uintptr(len(xs) * size_of(T))
 }
 
@@ -15,21 +35,6 @@ slice_cast :: #force_inline proc($T: typeid, xs: []$U) -> []T {
 	byte_count := slice_size_of(xs)
 	assert(byte_count % size_of(T) == 0)
 	return (transmute([^]T)slice.as_ptr(xs))[0:(len(xs)*size_of(U)/size_of(T))]
-}
-
-// packs a context value and a vtable of callbacks
-Closure :: struct($Ctx, $VTable: typeid) {
-	ctx: Ctx,
-	vtable: VTable,
-}
-
-closure_make :: proc(ctx: $Ctx, vtable: $VTable) -> Closure(Ctx,VTable) {
-	return {ctx,vtable}
-}
-
-VTable_Array_Readonly :: struct($Ctx, $Inner: typeid) {
-	at: proc(ctx: Ctx, i: uintptr) -> Inner,
-	len: proc(ctx: Ctx) -> uintptr,
 }
 
 slice_vtable_array_readonly :: proc($T: typeid
@@ -45,19 +50,14 @@ slice_vtable_array_readonly :: proc($T: typeid
 	}
 }
 
-VTable_Array_Trait :: struct($Ctx, $Inner: typeid) {
-	using readonly: VTable_Array_Readonly,
-	set: proc(ctx: Ctx, i: uintptr, x: Inner),
-}
-
-VTable_Getter :: struct($Ctx, $Attrib, $T: typeid) { 
-	get: proc(Ctx, T) -> Attrib
-}
-
 soa_from_aos :: proc(data: []$T) -> #soa[]T {
 	out := make(#soa[]T, len(data))
 	for e, i in data do out[i] = e
 	return out
+}
+
+closure_make :: proc(ctx: $Ctx, vtable: $VTable) -> Closure(Ctx,VTable) {
+	return {ctx,vtable}
 }
 
 array_attrib_unzip :: proc(
@@ -93,12 +93,4 @@ range_intersection_depth :: proc(a: Range(f32), b: Range(f32)) -> f32 {
 	if a.min <= b.min { left, right = a,b}
 	else { left, right = b, a}
 	return left.max - right.min
-}
-
-vec_reflect :: proc(v, axis: $V) -> V {
-	//assert(abs(linalg.vector_length(v)-1.) < 0.0001)
-	fmt.printf("common::vec_reflect: len = %f\n", linalg.vector_length(v))
-
-	b := axis * (2 * linalg.dot(axis,v))
-	return b - v
 }
