@@ -3,6 +3,7 @@ package main
 import rl "vendor:raylib"
 
 Action :: distinct enum {
+	Reset,
 	Up, Down, Left, Right,
 	Jump, Turn,
 }
@@ -23,6 +24,7 @@ Input :: union {
 }
 
 DEFAULT_INPUT_MAP :: [Action][]Input {
+	.Reset = { rl.KeyboardKey.R },
 	.Up = { rl.KeyboardKey.E },
 	.Down = { rl.KeyboardKey.D },
 	.Left = { rl.KeyboardKey.S },
