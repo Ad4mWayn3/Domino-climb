@@ -2,11 +2,8 @@ package main
 
 import rl "vendor:raylib"
 import "core:fmt"
+import "core:math"
 import "core:math/linalg"
-
-vector2_wedge :: proc(v: [2]f32, u: [2]f32) -> f32 {
-	return v.x*u.y - v.y*u.x
-}
 
 VTable_Convex_Set :: struct($Ctx: typeid) {
 	// returns the furthest boundary point in the direction `d`.
@@ -39,6 +36,10 @@ COLLISION_NONE :: Collision {
 	axis = {0,0},
 	support_point_a = {0,0},
 	support_point_b = {0,0}
+}
+
+vector2_wedge :: proc(v: [2]f32, u: [2]f32) -> f32 {
+	return v.x*u.y - v.y*u.x
 }
 
 // gets the normal direcion of the boundary in the direction implied by `p`.
@@ -85,22 +86,23 @@ convex_set_move_and_collide :: proc(
 		} else do a.vtable.translate(a.ctx, -step)
 	}
 
+	if collision_test.found do a.vtable.translate(a.ctx, step*2)
+	//assert(!collision_checker.vtable(collision_checker.ctx, a.ctx).found)
+
 	assert(collision.found)
 	// the normal should be pointing outward from the static body
-
-	// assert(a.vtable.support_point(a.ctx, linalg.normalize(-collision.axis)) \
-	// 	== collision.support_point_a)
-	{
-		fmt.printf("convex_set_move_and_collide:\n"+
-			"vtable point a: %v\n"+
-			"vtable point -a: %v\n"+
-			"stored point a: %v\n"+
-			"stored point b: %v\n",
-			a.vtable.support_point(a.ctx, linalg.normalize(-collision.axis)),
-			a.vtable.support_point(a.ctx, linalg.normalize(collision.axis)),
-			collision.support_point_a,
-			collision.support_point_b)
-	}
+	
+	// {
+	// 	fmt.printf("geometry::convex_set_move_and_collide:\n"+
+	// 		"vtable point a: %v\n"+
+	// 		"vtable point -a: %v\n"+
+	// 		"stored point a: %v\n"+
+	// 		"stored point b: %v\n\n",
+	// 		a.vtable.support_point(a.ctx, linalg.normalize(-collision.axis)),
+	// 		a.vtable.support_point(a.ctx, linalg.normalize(collision.axis)),
+	// 		collision.support_point_a,
+	// 		collision.support_point_b)
+	// }
 
 
 	return collision
@@ -155,23 +157,34 @@ rec_collision_checker_rec :: proc(a: rl.Rectangle, b: rl.Rectangle
 
 	switch min(depth.x,depth.y) {
 	case depth.x:
-		collision.axis = {-depth.x, 0}
+		collision.axis = {-1, 0}
 		// by default, the axis points left or upwards, assumming the
 		// upper/leftmost interval is to be pushed out of the lower/rightmost--
 		// but because the axis is supposed to convey "pushing" `b` out of `a`,
 		// we check if b lies lower/rightmost in the smaller axis, and flip
 		// the axis accordingly
 		if a_min.x < b_min.x do collision.axis *= -1.
-	case depth.y: collision.axis = {0, -depth.y}
+	case depth.y: collision.axis = {0, -1}
 		if a_min.y < b_min.y do collision.axis *= -1.
 	}
 
 	b := b
 	a := a
-	d := linalg.normalize(collision.axis)
+	d := collision.axis
 
-	collision.support_point_b = rec_convex_set_vtable.support_point(&b, d)
-	collision.support_point_a = rec_convex_set_vtable.support_point(&a, -d)
+	if math.is_nan(d.x) || math.is_nan(d.y) {
+		fmt.printf("geometry::rec_collision_checker_rec:\n"+
+			"x collision depth: %.9f\n"+
+			"y collision depth: %.9f\n\n",
+			depth.x,
+			depth.y)
+	}
+
+	// here, we assign the support point of `b` to `support_point_a` since `b`,
+	// the second argument, within the context of `convex_set_move_and_collide`,
+	// is the dynamic body.
+	collision.support_point_a = rec_convex_set_vtable.support_point(&b, -d)
+	collision.support_point_b = rec_convex_set_vtable.support_point(&a, d)
 
 	return
 }
