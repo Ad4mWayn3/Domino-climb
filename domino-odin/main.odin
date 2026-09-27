@@ -23,12 +23,15 @@ main :: proc() {
 	defer game_deinit(&game)
 
 	rl.SetTraceLogLevel(.WARNING)
-	rl.SetConfigFlags({.WINDOW_RESIZABLE, .MSAA_4X_HINT})
+	rl.SetConfigFlags({.WINDOW_RESIZABLE,
+		.MSAA_4X_HINT
+	})
+	rl.SetTargetFPS(5)
 	rl.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "game")
 	defer rl.CloseWindow()
 
 	for !rl.WindowShouldClose() {
-		game_update(&game, rl.GetFrameTime())
+		game_update(&game, 1./30.)
 		game_draw(game)
 	}
 }

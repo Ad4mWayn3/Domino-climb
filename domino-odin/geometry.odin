@@ -60,7 +60,7 @@ convex_set_support_point_from_angle :: proc(
 	return convex_set.vtable.support_point(convex_set.ctx, {cos(theta),sin(theta)})
 }
 
-EPSILON :: 1./64.
+EPSILON :: 1./4096.
 convex_set_move_and_collide :: proc(
 	a: Closure($A, VTable_Convex_Set(A)),
 	collision_checker: Closure($Ctx, proc(ctx: Ctx, a: A) -> Collision),
@@ -86,25 +86,20 @@ convex_set_move_and_collide :: proc(
 		} else do a.vtable.translate(a.ctx, -step)
 	}
 
-	if collision_test.found do a.vtable.translate(a.ctx, step*2)
+	// step = linalg.normalize(-move) * EPSILON
+	// for collision_test.found {
+	// 	collision = collision_test
+	// 	a.vtable.translate(a.ctx, step)
+	// 	collision_test = collision_checker.vtable(collision_checker.ctx, a.ctx)
+	// }
+
+	//if collision_test.found {
+	 //	a.vtable.translate(a.ctx, step)
+	// 	//collision_test = collision_checker.vtable(collision_checker.ctx, a.ctx)
+	//}
 	//assert(!collision_checker.vtable(collision_checker.ctx, a.ctx).found)
 
 	assert(collision.found)
-	// the normal should be pointing outward from the static body
-	
-	// {
-	// 	fmt.printf("geometry::convex_set_move_and_collide:\n"+
-	// 		"vtable point a: %v\n"+
-	// 		"vtable point -a: %v\n"+
-	// 		"stored point a: %v\n"+
-	// 		"stored point b: %v\n\n",
-	// 		a.vtable.support_point(a.ctx, linalg.normalize(-collision.axis)),
-	// 		a.vtable.support_point(a.ctx, linalg.normalize(collision.axis)),
-	// 		collision.support_point_a,
-	// 		collision.support_point_b)
-	// }
-
-
 	return collision
 }
 
@@ -190,8 +185,8 @@ rec_collision_checker_rec :: proc(a: rl.Rectangle, b: rl.Rectangle
 }
 
 world_collision_check :: proc(world: []rl.Rectangle, obj: rl.Rectangle
-) -> (collision: Collision) {
-	for shape in world {
+) -> (collision: Collision, index: uintptr) {
+	for shape,i in world {
 		collision_test := rec_collision_checker_rec(shape, obj)
 		if collision_test.found {
 			// t := obj
@@ -200,9 +195,12 @@ world_collision_check :: proc(world: []rl.Rectangle, obj: rl.Rectangle
 			// this assertion will only be true if the axis is scaled to be
 			// the minimum translation vector
 			//assert(rec_collision_checker_rec(shape, t).found == false)
-			return collision_test
+			// fmt.printf("geometry::world_collision_check:\n"+
+			// 	"index = %d\n"+
+			// 	"casted = %d\n", i, cast(uintptr)i)
+			return collision_test, cast(uintptr)i
 		}
 	}
 
-	return COLLISION_NONE
+	return COLLISION_NONE, cast(uintptr)len(world)
 }
